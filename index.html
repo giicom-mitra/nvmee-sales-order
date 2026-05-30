@@ -480,7 +480,7 @@ const CATALOG = [
   {sku:"NV-HR-SATURN-H",     name:"SATURN HAIRSTYLER HITAM",     platinum:153000, gold:164000, rosegold:160000, silver:182000, keys:["saturn","hitam","black","h","saturn hitam","saturn black"]},
   {sku:"NV-HR-SAGI-MM",      name:"SAGITARIUS HAIRSTYLER",       platinum:248000, gold:269000, rosegold:261000, silver:296000, keys:["sagi","sagitarius","sagittarius"]},
   {sku:"NV-HR-ARIES2-MM",    name:"ARIES HAIRSTYLER",            platinum:226000, gold:247000, rosegold:242000, silver:277000, keys:["aries"]},
-  {sku:"NV-HR-VIRGO2-MM",    name:"VIRGO HAIRSTYLER",            platinum:390000, gold:410000, rosegold:394000, silver:450000, keys:["virgo","catokan portable","portable"]},
+  {sku:"NV-HR-VIRGO2-MM",    name:"VIRGO HAIRSTYLER",            platinum:390000, gold:400000, rosegold:394000, silver:450000, keys:["virgo","virgo pink","virgo mm","catokan portable","portable"]},
   {sku:"NV-HR-CAPRI-K",      name:"CAPRICORN HAIRSTYLER",        platinum:136000, gold:150000, rosegold:146000, silver:167000, keys:["capricorn","capri","catokan jagung","jagung"]},
   {sku:"NV-HR-SCORPIO-P",    name:"SCORPIO HAIRSTYLER",          platinum:144000, gold:157000, rosegold:153000, silver:174000, keys:["scorpio","scorpio putih","catokan lipat","lipat"]},
   {sku:"NV-HR-CANCER-PC",    name:"CANCER HAIRSTYLER",           platinum:243000, gold:262000, rosegold:255000, silver:292000, keys:["cancer"]},
@@ -489,7 +489,7 @@ const CATALOG = [
   {sku:"NV-DRY-LUNA-KR",     name:"LUNA HAIRDRYER KREAM",        platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","kream","cream","oat","kr","luna krem","luna oat","luna cream","luna kream","hairdryer","hair dryer"]},
   {sku:"NV-DRY-LUNA-HJ",     name:"LUNA HAIRDRYER HIJAU",        platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","hijau","green","hj","lime","luna hijau","luna lime","hairdryer","hair dryer"]},
   {sku:"NV-DRY-LUNA-B",      name:"LUNA HAIRDRYER BIRU",         platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","biru","sky","blue","b","luna biru","luna sky","hairdryer","hair dryer"]},
-  {sku:"NV-DRY-LEO-MM",      name:"LEO HAIRDRYER",               platinum:274000, gold:297000, rosegold:289000, silver:330000, keys:["leo","blowdryer","blow dryer","hairdryer","hair dryer"]},
+  {sku:"NV-DRY-LEO-MM",      name:"LEO HAIRDRYER",               platinum:274000, gold:297000, rosegold:289000, silver:330000, keys:["leo","leo pink","leo mm","leo dryer","blowdryer","blow dryer","hairdryer","hair dryer"]},
   {sku:"NV-DRY-MINA-S",      name:"MINA HAIRDRYER SILVER",       platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","silver","mina silver","highspeed","high speed"]},
   {sku:"NV-DRY-MINA-KR",     name:"MINA HAIRDRYER KREAM",        platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","kream","cream","oat","mina krem","mina oat","mina cream","mina kream","highspeed","high speed"]},
   {sku:"NV-DRY-MINA-MM",     name:"MINA HAIRDRYER PINK",         platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","pink","merah muda","mm","mina pink","mina merah muda","highspeed","high speed"]},
@@ -601,19 +601,24 @@ function setItemSku(invId, idx, v) {
 
 function setItemQty(invId, idx, v) {
   var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv) { inv.items[idx].qty = v; updateSummary(); }
+  if (inv) { inv.items[idx].qty = parseFloat(v) || 0; updateSummary(); }
 }
 
 function setItemPrice(invId, idx, v) {
   var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv) { inv.items[idx].price = v; inv.items[idx].manual = true; updateSummary(); }
+  if (inv) { inv.items[idx].price = parseFloat(v) || 0; updateSummary(); }
 }
 
 function setInvTier(invId, t) {
   var inv = invoices.find(function(i) { return i.id === invId; });
   if (!inv) return;
   inv.tier = t;
-  inv.items.forEach(function(it) { if (it.ref && !it.manual) it.price = getPrice(it.ref, t); });
+  inv.items.forEach(function(it) {
+    if (it.ref) {
+      it.price = getPrice(it.ref, t);
+      it.manual = false;
+    }
+  });
   renderAll();
 }
 
@@ -738,8 +743,8 @@ function renderInvoices() {
         + '<div class="sku-wrap ' + matched + '" id="sw-' + inv.id + '-' + idx + '">'
         + '<input type="text" value="' + esc(it.sku) + '" oninput="setItemSku(' + inv.id + ',' + idx + ',this.value)" onfocus="showSuggest(' + inv.id + ',' + idx + ',this.value)" onblur="setTimeout(closeAllSuggest,160)" placeholder="Ketik nama produk...">'
         + '</div>'
-        + '<input type="number" value="' + esc(it.qty) + '" min="0" onchange="setItemQty(' + inv.id + ',' + idx + ',this.value)" style="text-align:center">'
-        + '<input type="number" value="' + esc(it.price) + '" onchange="setItemPrice(' + inv.id + ',' + idx + ',this.value)" placeholder="' + (inv.tier ? 'auto' : 'pilih tier') + '">'
+        + '<input type="number" value="' + esc(it.qty) + '" min="0" oninput="setItemQty(' + inv.id + ',' + idx + ',this.value)" style="text-align:center">'
+        + '<input type="number" value="' + esc(it.price) + '" oninput="setItemPrice(' + inv.id + ',' + idx + ',this.value)" placeholder="' + (inv.tier ? 'auto' : 'pilih tier') + '">'
         + '<div style="display:flex;align-items:center;justify-content:flex-end;font-size:12px;color:var(--text2);font-family:\'DM Mono\',monospace;padding-top:7px">' + Math.round((+it.qty||0)*(+it.price||0)).toLocaleString('id-ID') + '</div>'
         + '<button class="del-btn" onclick="removeItem(' + inv.id + ',' + idx + ')" title="Hapus">&#10005;</button>'
         + '</div>';
@@ -867,8 +872,7 @@ var MULTI_COLOR = [
     { sku: 'NV-HR-LIBRAV2-U',  priority: 0 }   // ungu
   ]},
   { keys: ['saturn'], variants: [
-    { sku: 'NV-HR-SATURN-U', priority: 1 },    // ungu = utama
-    { sku: 'NV-HR-SATURN-H', priority: 0 }     // hitam
+    { sku: 'NV-HR-SATURN-U', priority: 1 },    // ungu = default
   ]},
   { keys: ['luna'], variants: [
     { sku: 'NV-DRY-LUNA-U',  priority: 0 },
@@ -910,7 +914,7 @@ var MULTI_COLOR = [
   ]},
 ];
 
-var COLOR_WORDS = ['pink','merah muda','mm','ungu','lilac','purple','hijau','green','hj','hitam','black','kream','cream','oat','kr','biru','sky','blue','silver','lime','putih','white','peach','tosca','tc','magenta','mgt','pc'];
+var COLOR_WORDS = ['pink','merah muda','ungu','lilac','purple','hijau','green','hj','hitam','black','kream','cream','oat','kr','biru','sky','blue','silver','lime','putih','white','peach','tosca','magenta'];
 
 function hasColorWord(lineLow) {
   return COLOR_WORDS.some(function(w) { return lineLow.includes(w); });
@@ -971,10 +975,14 @@ function findBestProduct(lineLow) {
   var bestMatch = null, bestScore = 0;
   CATALOG.forEach(function(p) {
     var score = 0;
-    if (lineLow.includes(p.sku.toLowerCase())) score += 20;
+    if (lineLow.includes(p.sku.toLowerCase())) score += 30;
     p.keys.forEach(function(k) {
       var kl = k.toLowerCase();
-      if (lineLow.includes(kl)) score += (kl.length > 6 ? 8 : kl.length > 3 ? 5 : 2);
+      if (lineLow.includes(kl)) {
+        // Exact single-word match bonus (misal "leo" tepat ada di baris)
+        var wordBonus = (new RegExp('\\b' + kl + '\\b')).test(lineLow) ? 3 : 0;
+        score += (kl.length > 6 ? 10 : kl.length > 3 ? 7 : 2) + wordBonus;
+      }
     });
     Object.keys(COLOR_MAP).forEach(function(word) {
       if (lineLow.includes(word) && p.sku.endsWith('-' + COLOR_MAP[word])) score += 6;
