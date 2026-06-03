@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NVMEE Sales Order Generator</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>NVMEE Mitra Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
@@ -38,439 +38,564 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
     font-size: 14px;
     line-height: 1.5;
+    margin: 0;
+    overflow: hidden;
   }
-  .topbar {
+
+  /* --- APP LAYOUT (SIDEBAR + MAIN) --- */
+  .app-wrapper {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg);
+  }
+  
+  .sidebar {
+    width: 240px;
     background: var(--text);
     color: #fff;
-    padding: 0 2rem;
-    height: 52px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    flex-direction: column;
+    flex-shrink: 0;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+    z-index: 10;
   }
-  .topbar-logo {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+  
+  .sidebar-logo {
+    padding: 20px;
+    font-size: 16px;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex;
     align-items: center;
     gap: 10px;
+    letter-spacing: -0.02em;
   }
-  .topbar-logo span {
+  
+  .sidebar-logo span {
     background: #fff;
     color: var(--text);
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 11px;
-    font-weight: 600;
     letter-spacing: .04em;
   }
-  .topbar-right { font-size: 12px; opacity: .5; font-family: 'DM Mono', monospace; }
-  .container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
-  .page-header { margin-bottom: 2rem; }
-  .page-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 4px; }
-  .page-header p { color: var(--text2); font-size: 13px; }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-    box-shadow: var(--shadow);
-  }
-  .card-title {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: var(--text3);
-    margin-bottom: 1rem;
+  
+  .nav-list {
+    list-style: none;
+    padding: 15px 12px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 6px;
   }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .full { grid-column: 1 / -1; }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field label { font-size: 12px; color: var(--text2); font-weight: 500; }
-  input, select, textarea {
-    width: 100%;
-    padding: 8px 11px;
-    border: 1px solid var(--border);
+  
+  .nav-item {
+    padding: 10px 14px;
     border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--text);
+    cursor: pointer;
     font-size: 13px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    transition: border-color .15s;
-    outline: none;
-  }
-  input:focus, select:focus, textarea:focus { border-color: var(--border2); box-shadow: 0 0 0 3px rgba(26,25,22,.06); }
-  input[readonly] { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
-  .tier-row { display: flex; gap: 8px; }
-  .tier-btn {
-    flex: 1; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-    background: var(--surface2); cursor: pointer; font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
-    color: var(--text2); text-align: center; transition: all .15s; font-weight: 500;
-  }
-  .tier-btn:hover { border-color: var(--border2); color: var(--text); }
-  .tier-btn.gold { background: #FFD700; border-color: #C8A000; color: #5C3A00; font-weight: 600; }
-  .tier-btn.silver { background: #FFFFFF; border-color: #9090A0; color: #303050; font-weight: 600; }
-  .tier-btn.platinum { background: #E8BFFF; border-color: #A050D0; color: #4A1A7A; font-weight: 600; }
-  .tabs { display: flex; gap: 0; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; background: #FFD6E7; }
-  .tab {
-    flex: 1; padding: 7px 12px; border: none; border-radius: 5px; background: none;
-    cursor: pointer; font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
-    color: var(--text2); font-weight: 500; transition: all .15s;
-  }
-  .tab.active { background: var(--surface); color: #3B2F24; box-shadow: var(--shadow); font-weight: 600; }
-  .pane { display: none; }
-  .pane.active { display: block; }
-  .invoice-block {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    margin-bottom: 10px;
-    overflow: hidden;
-  }
-  .invoice-head {
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    padding: 9px 12px;
+    font-weight: 500;
+    transition: all .2s;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
-    flex-wrap: wrap;
+    color: rgba(255,255,255,0.6);
   }
-  .invoice-head-left { display: flex; align-items: center; gap: 8px; }
-  .invoice-num-input {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1.5px solid var(--border2);
-    border-radius: 4px;
-    padding: 6px 10px;
-    background: #F2EBE0;
-    color: var(--text);
-    width: 220px;
+  
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .nav-item.active { background: #2E86C1; color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(46,134,193,.25); }
+
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
-  .invoice-num-input:focus { border-color: var(--text2); background: #F2EBE0; outline: none; }
+  
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 2rem;
+    box-shadow: 0 2px 10px rgba(26,58,92,0.02);
+    z-index: 5;
+  }
+  
+  .topbar-right { font-size: 12px; opacity: .6; font-family: 'DM Mono', monospace; font-weight: 500; }
+
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .view-section { display: none; animation: fadeIn .3s ease; }
+  .view-section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  
+  .page-header { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 15px;}
+  .page-header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 4px; }
+  .page-header-left p { color: var(--text2); font-size: 13px; }
+  
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); transition: box-shadow .2s ease;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text3); margin-bottom: 1rem; display: flex; align-items: center; gap: 6px;
+  }
+  
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .field label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  
+  input, select, textarea {
+    width: 100%; padding: 8px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text); font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: border-color .15s; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #7AB8E8; box-shadow: 0 0 0 3px rgba(122,184,232,.18); }
+  
+  /* --- CALENDAR FULL CSS --- */
+  .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 10px;}
+  .cal-btn { background: var(--surface2); border: 1px solid var(--border); padding: 7px 16px; border-radius: 6px; cursor: pointer; color: var(--text); font-weight: 600; font-family: inherit; transition: .2s; }
+  .cal-btn:hover { background: #E8D060; color: #fff; border-color: #C8900A; }
+  .cal-title { font-weight: 700; font-size: 18px; color: var(--text); }
+  .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text3); margin-bottom: 8px; }
+  
+  .calendar-grid-full { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(100px, 1fr); gap: 6px; }
+  .day-full {
+    background: #F9FAFB; border-radius: 8px; padding: 6px; border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 4px; overflow-y: auto; cursor: pointer;
+    transition: all 0.2s; min-height: 100px;
+  }
+  .day-full:hover { background: #FFF0F5; border-color: #FF85B0; box-shadow: 0 2px 10px rgba(255,133,176,0.2); }
+  .day-full.empty { background: transparent; border-color: transparent; cursor: default; }
+  .day-full.empty:hover { background: transparent; box-shadow: none; }
+  .day-full .day-num { font-size: 13px; font-weight: 700; color: var(--text3); align-self: flex-end; margin-bottom: 4px; }
+  .day-full.today .day-num { background: #FF85B0; color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  
+  .task-pill {
+    background: #FF85B0; color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; cursor: pointer;
+    transition: transform 0.1s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .task-pill:hover { transform: scale(1.02); filter: brightness(1.1); }
+  .task-pill.done { background: #B0E0A0; color: #2E7D32; text-decoration: line-through; opacity: 0.8; box-shadow: none;}
+  
+  /* --- MODAL POP-UP CSS --- */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(26,58,92,0.4); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+    animation: fadeIn .2s;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-content {
+    background: #fff; width: 450px; max-width: 90%; border-radius: var(--radius);
+    padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); position: relative;
+    animation: slideUp .3s cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px dashed #FF85B0; padding-bottom: 12px;}
+  .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text3); line-height: 1; transition: color .2s;}
+  .modal-close:hover { color: var(--red); }
+
+  /* --- SO CSS (TETAP) --- */
+  .tier-btn { flex: 1; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); cursor: pointer; font-size: 13px; font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text2); text-align: center; transition: all .15s; font-weight: 500; }
+  .tier-btn:hover { border-color: var(--border2); color: var(--text); }
+  .invoice-block { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; animation: invoiceIn .3s cubic-bezier(.34,1.3,.64,1) both; transition: box-shadow .2s ease; }
+  .invoice-block:hover { box-shadow: 0 4px 16px rgba(26,58,92,.08); }
+  @keyframes invoiceIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .invoice-head { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .invoice-num-input { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; border: 1.5px solid var(--border2); border-radius: 4px; padding: 6px 10px; background: #F2EBE0; color: var(--text); width: 220px; }
   .invoice-body { padding: 12px; }
   .order-cols { display: grid; grid-template-columns: minmax(0,3fr) 60px minmax(0,1.2fr) 90px 32px; gap: 6px; margin-bottom: 5px; }
   .order-col-label { font-size: 11px; color: var(--text3); font-weight: 500; }
   .order-row-grid { display: grid; grid-template-columns: minmax(0,3fr) 60px minmax(0,1.2fr) 90px 32px; gap: 6px; align-items: start; margin-bottom: 5px; position: relative; }
   .order-row-grid input { font-size: 12px; padding: 6px 9px; }
   .sku-wrap { position: relative; }
-  .suggest-box {
-    position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
-    background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm);
-    box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 200px; overflow-y: auto;
-  }
-  .suggest-item {
-    padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between;
-    align-items: center; gap: 8px; font-size: 12px; transition: background .1s;
-  }
-  .suggest-item:hover { background: #FFD6E7; }
+  .suggest-box { position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 200px; overflow-y: auto; }
+  .suggest-item { padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; transition: background .15s ease, padding-left .15s ease; border-left: 2px solid transparent; }
+  .suggest-item:hover { background: #FFF0F5; border-left-color: #FF85B0; padding-left: 14px; }
   .suggest-price { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); white-space: nowrap; }
   .sku-matched input { border-color: var(--green-border) !important; background: var(--green-bg) !important; }
-  .del-btn {
-    background: none; border: 1px solid transparent; border-radius: var(--radius-sm);
-    color: var(--text3); cursor: pointer; padding: 6px; line-height: 1; font-size: 14px;
-    display: flex; align-items: center; justify-content: center; transition: all .15s;
-  }
-  .del-btn:hover { border-color: var(--border); color: var(--red); background: var(--red-bg); }
-  .add-product-btn {
-    width: 100%; padding: 7px; background: none; border: 1px dashed var(--border);
-    border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text3);
-    font-family: 'Plus Jakarta Sans', sans-serif; margin-top: 6px; transition: all .15s;
-  }
-  .add-product-btn:hover { border-color: var(--border2); color: var(--text2); background: #FFD6E7; }
-  .invoice-foot {
-    border-top: 1px solid var(--border);
-    padding: 8px 12px;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text2);
-    background: var(--surface2);
-  }
+  .del-btn { background: none; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text3); cursor: pointer; padding: 6px; line-height: 1; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .2s cubic-bezier(.34,1.4,.64,1); }
+  .del-btn:hover { border-color: #FCA5A5; color: var(--red); background: var(--red-bg); transform: scale(1.1); }
+  .add-product-btn { width: 100%; padding: 7px; background: none; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text3); font-family: 'Plus Jakarta Sans', sans-serif; margin-top: 6px; transition: all .2s ease; }
+  .add-product-btn:hover { border-color: #FF85B0; color: #C0306A; background: #FFF0F5; border-style: solid; }
+  .invoice-foot { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); background: var(--surface2); }
   .invoice-foot strong { font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
-  .diff-cust-form { background: #FFF0F8; border: 1px dashed #F5A0C0; border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px; }
-  .diff-cust-form .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .diff-cust-form label { font-size: 11px; color: var(--text2); font-weight: 500; }
-  .diff-cust-form input { font-size: 12px; padding: 6px 9px; }
-  .diff-cust-title { font-size: 11px; font-weight: 700; color: #C0306A; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-  .add-invoice-btn {
-    display: flex; align-items: center; gap: 6px; background: none;
-    border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 8px 14px; font-size: 12px; cursor: pointer; color: var(--text2);
-    font-family: 'Plus Jakarta Sans', sans-serif; transition: all .15s; font-weight: 500;
-  }
-  .add-invoice-btn:hover { border-color: #8FAB8A; color: #3B2F24; background: #DFE8DC; }
-  .remove-invoice-btn {
-    background: none; border: none; cursor: pointer; color: var(--text3);
-    font-size: 13px; padding: 2px; border-radius: 4px; line-height: 1;
-    transition: all .15s;
-  }
-  .remove-invoice-btn:hover { color: var(--red); }
+  .add-invoice-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; cursor: pointer; color: var(--text2); font-family: 'Plus Jakarta Sans', sans-serif; transition: all .2s ease; font-weight: 500; }
+  .add-invoice-btn:hover { border-color: var(--border2); color: var(--text); background: #EEF6FF; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(122,184,232,.2); }
   .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
-  .summary-card { background: #AED6F5; border-radius: var(--radius-sm); padding: 12px 14px; }
+  .summary-card { background: #AED6F5; border-radius: var(--radius-sm); padding: 12px 14px; transition: transform .2s ease, box-shadow .2s ease; }
   .summary-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; font-weight: 500; }
   .summary-value { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; letter-spacing: -.02em; }
-  .generate-btn {
-    width: 100%; padding: 13px; background: var(--text); color: #fff; border: none;
-    border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer;
-    font-family: 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center;
-    justify-content: center; gap: 8px; transition: all .15s; letter-spacing: -.01em;
-  }
-  .generate-btn:hover { background: #1A6AA0; opacity: 1; }
-  .generate-btn:active { transform: scale(.99); }
-  .ai-wrap { position: relative; }
-  .ai-textarea { padding-bottom: 40px !important; resize: vertical; min-height: 120px; }
-  .ai-run-btn {
-    position: absolute; right: 8px; bottom: 8px; background: var(--text); color: #fff;
-    border: none; border-radius: var(--radius-sm); padding: 5px 12px; font-size: 11px;
-    cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600;
-    transition: all .15s;
-  }
-  .ai-run-btn:hover { opacity: .82; }
-  .ai-run-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .ai-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+  
+  .generate-btn { width: 100%; padding: 13px; background: var(--text); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .2s; }
+  .generate-btn:hover { background: #2563A8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,58,92,.25); }
 
-  .loading-bar {
-    display: none; height: 2px; background: var(--border); border-radius: 2px;
-    margin-top: 8px; overflow: hidden;
-  }
-  .loading-bar.active { display: block; }
-  .loading-bar::after {
-    content: ''; display: block; height: 100%; width: 40%;
-    background: var(--text); border-radius: 2px;
-    animation: loading 1s ease-in-out infinite;
-  }
-  @keyframes loading { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
-  .toast {
-    position: fixed; bottom: 24px; right: 24px; padding: 12px 18px;
-    background: var(--text); color: #fff; border-radius: var(--radius); font-size: 13px;
-    font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 999;
-    transform: translateY(80px); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1);
-    pointer-events: none; display: flex; align-items: center; gap: 8px;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.error { background: #991B1B; }
-  .fixed-section { background: #FFD6E7; border: 1px solid #F5A0C0; border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; }
-  .fixed-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .fixed-chip {
-    display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 20px; padding: 4px 10px; font-size: 12px;
-  }
-  .fixed-chip .chip-key { color: var(--text3); }
-  .fixed-chip .chip-val { font-weight: 600; font-family: 'DM Mono', monospace; font-size: 11px; }
-  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
-  .section-label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); margin-bottom: 1rem; }
-  /* Loading overlay */
-  .loading-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(2px);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity .3s;
-  }
-  .loading-overlay.show { opacity: 1; pointer-events: all; }
-  .loading-title {
-    font-size: 28px; font-weight: 700; color: #1A3A5C;
-    letter-spacing: -.02em; margin-bottom: 6px;
-    animation: titleBounce 1s ease-in-out infinite;
-    text-shadow: 0 2px 12px rgba(255,255,255,0.9);
-    background: rgba(255,255,255,0.7);
-    padding: 8px 24px; border-radius: 20px;
-    backdrop-filter: blur(8px);
-  }
-  .loading-sub { font-size: 14px; color: #1A3A5C; margin-bottom: 32px; font-weight: 500;
-    background: rgba(255,255,255,0.6); padding: 4px 16px; border-radius: 12px; }
-  .loading-dots { display: flex; gap: 10px; margin-bottom: 28px; }
-  .loading-dot {
-    width: 14px; height: 14px; border-radius: 50%;
-    animation: dotBounce 1s ease-in-out infinite;
-  }
-  .loading-dot:nth-child(1) { background: #FF85B0; animation-delay: 0s; }
-  .loading-dot:nth-child(2) { background: #FFD700; animation-delay: .15s; }
-  .loading-dot:nth-child(3) { background: #AED6F5; animation-delay: .3s; }
-  .loading-dot:nth-child(4) { background: #B0E0A0; animation-delay: .45s; }
-  .loading-dot:nth-child(5) { background: #FF85B0; animation-delay: .6s; }
-  .loading-msg { font-size: 13px; color: #1A3A5C; font-weight: 500; background: rgba(255,255,255,0.6); padding: 4px 16px; border-radius: 12px; }
-  .loading-stars { position: absolute; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
-  .star {
-    position: absolute; font-size: 20px;
-    animation: floatStar 3s ease-in-out infinite;
-    opacity: .7;
-  }
-  @keyframes titleBounce {
-    0%,100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-8px) scale(1.05); }
-  }
-  @keyframes dotBounce {
-    0%,100% { transform: translateY(0); }
-    50% { transform: translateY(-12px); }
-  }
-  @keyframes floatStar {
-    0%,100% { transform: translateY(0) rotate(0deg) scale(1); opacity: .6; }
-    50% { transform: translateY(-20px) rotate(180deg) scale(1.2); opacity: 1; }
-  }
-  .rainbow-bar {
-    position: absolute; top: 0; left: 0; right: 0; height: 4px;
-    background: linear-gradient(90deg, #FF85B0, #FFD700, #AED6F5, #B0E0A0, #E8BFFF, #FF85B0);
-    background-size: 200% 100%;
-    animation: rainbowMove 2s linear infinite;
-    opacity: 0.6;
-  }
-  .rainbow-bar-bottom {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
-    background: linear-gradient(90deg, #AED6F5, #B0E0A0, #E8BFFF, #FF85B0, #FFD700, #AED6F5);
-    background-size: 200% 100%;
-    animation: rainbowMove 2s linear infinite reverse;
-    opacity: 0.6;
-  }
-  @keyframes rainbowMove {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 200% 0%; }
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-spinner {
-    width: 40px; height: 40px; border: 4px solid #FFD6E7;
-    border-top-color: #FF85B0; border-radius: 50%;
-    animation: spin .8s linear infinite; margin-bottom: 20px;
-  }
-  @media (max-width: 600px) {
+  /* Utility & Mobile */
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 18px; background: var(--text); color: #fff; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 999; transform: translateY(80px) scale(.95); opacity: 0; transition: all .35s cubic-bezier(.34,1.56,.64,1); border-left: 3px solid #FF85B0; }
+  .toast.show { transform: translateY(0) scale(1); opacity: 1; }
+  
+  @media (max-width: 768px) {
+    .app-wrapper { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,.1); z-index: 100; padding-right: 10px; }
+    .sidebar-logo { border-bottom: none; padding: 15px; }
+    .nav-list { flex-direction: row; padding: 0; margin: 0; overflow-x: auto; flex: 1; justify-content: flex-end; }
+    .nav-item { padding: 8px 12px; font-size: 12px; white-space: nowrap; }
+    .topbar { display: none; }
     .grid2 { grid-template-columns: 1fr; }
     .summary-grid { grid-template-columns: 1fr 1fr; }
     .order-cols, .order-row-grid { grid-template-columns: minmax(0,2.5fr) 50px minmax(0,1fr) 80px 28px; }
-    .container { padding: 1rem 1rem 3rem; }
+    .container { padding: 1.5rem 1rem 3rem; }
+    .calendar-days { font-size: 11px; }
+    .day-full { min-height: 80px; }
   }
-
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-logo">
-    NVMEE <span>MITRA</span>
-    <span style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:10px">Sales Order Generator</span>
-  </div>
-  <div class="topbar-right" id="topbar-date"></div>
+<div class="app-wrapper">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      NVMEE <span>MITRA</span>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item active" onclick="switchView('view-so', this)">🛍️ Sales Order</li>
+      <li class="nav-item" onclick="switchView('view-todo', this)">📅 To-Do List</li>
+    </ul>
+  </aside>
+
+  <main class="main-area">
+    <div class="topbar">
+      <div class="topbar-right" id="topbar-date"></div>
+    </div>
+    
+    <div class="main-content">
+      <div class="container">
+        
+        <div id="view-so" class="view-section active">
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1>Sales Order Generator</h1>
+              <p>Input order customer → Generate Excel siap import ke Dementer</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">&#9679; Info Customer</div>
+            <div class="grid2">
+              <div class="field full"><label>Nama Customer / Akun &amp; Penerima</label><input type="text" id="cust-name" placeholder=""></div>
+              <div class="field"><label>Customer Code</label><input type="text" id="cust-code" placeholder=""></div>
+              <div class="field"><label>No. Telepon</label><input type="text" id="cust-phone" placeholder=""></div>
+              <div class="field"><label>Ekspedisi</label>
+                <input type="text" id="cust-eksp" list="eksp-list" placeholder="" autocomplete="off">
+                <datalist id="eksp-list">
+                  <option value="Makharya"><option value="J&T Cargo"><option value="J&T Express"><option value="Sentral Cargo"><option value="Pak Didik">
+                </datalist>
+              </div>
+              <div class="field full"><label>Alamat Penerima</label><input type="text" id="cust-addr" placeholder=""></div>
+              <div class="field"><label>Kota</label><input type="text" id="cust-city" placeholder=""></div>
+              <div class="field"><label>Provinsi</label><input type="text" id="cust-prov" placeholder=""></div>
+              <div class="field"><label>No. NPWP</label><input type="text" id="cust-npwp" placeholder="(opsional)"></div>
+              <div class="field"><label>Nama NPWP</label><input type="text" id="cust-npwp-name" placeholder="(opsional)"></div>
+            </div>
+          </div>
+
+          <div id="extra-customer-cards"></div>
+
+          <div class="card">
+            <div class="card-title">&#9679; Paste Order WA</div>
+            <div style="position:relative">
+              <textarea id="wa-input" rows="5" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;outline:none;padding-bottom:36px" placeholder="Paste list order dari WA di sini...&#10;Contoh:&#10;Taurus hijau 2&#10;Libra pink 3&#10;Saturn ungu 5"></textarea>
+              <button onclick="parseWA()" style="position:absolute;right:8px;bottom:8px;background:#2E86C1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;">&#10024; Ekstrak ke Invoice</button>
+            </div>
+            <div id="wa-result" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">&#9679; List Order</div>
+            <div id="invoices-container"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="add-invoice-btn" onclick="addInvoice(false)">+ Tambah Invoice (Customer Sama)</button>
+              <button class="add-invoice-btn" onclick="addInvoice(true)" style="border-color:#FF85B0;color:#C0306A">+ Tambah Invoice (Customer Beda)</button>
+            </div>
+          </div>
+
+          <div class="summary-grid" id="summary-grid" style="display:none">
+            <div class="summary-card"><div class="summary-label">Total Invoice</div><div class="summary-value" id="sum-inv">0</div></div>
+            <div class="summary-card"><div class="summary-label">Total Item</div><div class="summary-value" id="sum-items">0</div></div>
+            <div class="summary-card"><div class="summary-label">Grand Total</div><div class="summary-value" id="sum-total">Rp 0</div></div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-direction:column">
+            <button class="generate-btn" onclick="generateExcel()">&#8659; Download Excel</button>
+            <button class="generate-btn" id="dementer-btn" onclick="generateAndOpenDementer()" style="background:#2E86C1;gap:8px">&#10024; Generate &amp; Buka Dementer</button>
+          </div>
+        </div>
+
+        <div id="view-todo" class="view-section">
+          <div class="page-header">
+            <div class="page-header-left">
+              <h1>To-Do List Mitra</h1>
+              <p>Kelola jadwal, janji, dan tugas harianmu di sini.</p>
+            </div>
+            <button class="generate-btn" style="width:auto; padding: 10px 20px; background:#C0306A; border-radius: 8px;" onclick="openAddModal()">
+              + Tambah Jadwal
+            </button>
+          </div>
+
+          <div class="card" style="padding: 15px;">
+            <div class="cal-header">
+              <button class="cal-btn" onclick="changeMonth(-1)">&lsaquo; Prev</button>
+              <div class="cal-title" id="cal-month-year">Bulan Tahun</div>
+              <button class="cal-btn" onclick="changeMonth(1)">Next &rsaquo;</button>
+            </div>
+            <div class="calendar-days">
+              <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+            </div>
+            <div class="calendar-grid-full" id="cal-grid">
+              </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
 </div>
 
-
-<div class="container">
-  <div class="page-header">
-    <h1>Sales Order Generator</h1>
-    <p>Input order customer → Generate Excel siap import ke Dementer</p>
-  </div>
-
-  <!-- Customer Info -->
-  <div class="card">
-    <div class="card-title">&#9679; Nama Penerima</div>
+<div class="modal-overlay" id="todo-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title" style="color:#C0306A; margin:0; font-size:16px;">&#10024; Tambah Tugas Baru</h3>
+      <button class="modal-close" onclick="closeTodoModal()">&times;</button>
+    </div>
+    
+    <input type="hidden" id="todo-id">
+    
     <div class="field">
-      <input type="text" id="cust-receiver" placeholder="">
+      <label>Tanggal</label>
+      <input type="date" id="todo-date">
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">&#9679; Info Customer</div>
-    <div class="grid2">
-      <div class="field"><label>Nama Customer / Akun</label><input type="text" id="cust-name" placeholder=""></div>
-      <div class="field"><label>Customer Code</label><input type="text" id="cust-code" placeholder=""></div>
-      <div class="field"><label>No. Telepon</label><input type="text" id="cust-phone" placeholder=""></div>
-      <div class="field"><label>Ekspedisi</label>
-        <input type="text" id="cust-eksp" list="eksp-list" placeholder="" autocomplete="off">
-        <datalist id="eksp-list">
-          <option value="Makharya">
-          <option value="J&T Cargo">
-          <option value="J&T Express">
-          <option value="Sentral Cargo">
-        </datalist>
-      </div>
-      <div class="field full"><label>Alamat Penerima</label><input type="text" id="cust-addr" placeholder=""></div>
-      <div class="field"><label>Kota</label><input type="text" id="cust-city" placeholder=""></div>
-      <div class="field"><label>Provinsi</label><input type="text" id="cust-prov" placeholder=""></div>
-      <div class="field"><label>No. NPWP</label><input type="text" id="cust-npwp" placeholder="(opsional)"></div>
-      <div class="field"><label>Nama NPWP</label><input type="text" id="cust-npwp-name" placeholder="(opsional)"></div>
-
+    <div class="field">
+      <label>Judul Tugas / Agenda</label>
+      <input type="text" id="todo-title" placeholder="Misal: Follow up customer A...">
     </div>
-  </div>
-
-  <!-- Extra Customer Cards - rendered dynamically -->
-  <div id="extra-customer-cards"></div>
-
-  <!-- Paste WA -->
-  <div class="card">
-    <div class="card-title">&#9679; Paste Order WA</div>
-    <div style="position:relative">
-      <textarea id="wa-input" rows="5" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--border-radius-sm,6px);font-family:inherit;font-size:13px;resize:vertical;background:var(--surface);color:var(--text);outline:none;padding-bottom:36px" placeholder="Paste list order dari WA di sini...&#10;Contoh:&#10;Taurus hijau 2&#10;Libra pink 3&#10;Saturn ungu 5"></textarea>
-      <button onclick="parseWA()" style="position:absolute;right:8px;bottom:8px;background:#2E86C1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">&#10024; Ekstrak ke Invoice</button>
+    <div class="field">
+      <label>Catatan Tambahan</label>
+      <textarea id="todo-notes" rows="4" placeholder="Detail tugas, kontak, atau catatan lain..."></textarea>
     </div>
-    <div id="wa-result" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
-  </div>
-
-  <!-- Orders -->
-  <div class="card">
-    <div class="card-title">&#9679; List Order</div>
-    <div id="invoices-container"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="add-invoice-btn" onclick="addInvoice(false)">+ Tambah Invoice (Customer Sama)</button>
-      <button class="add-invoice-btn" onclick="addInvoice(true)" style="border-color:#FF85B0;color:#C0306A">+ Tambah Invoice (Customer Beda)</button>
+    
+    <div style="display:flex; gap:8px; margin-top:20px;">
+      <button id="btn-delete-todo" class="generate-btn" style="background:#FDECEA; color:#C0392B; border:1px solid #FCA5A5; display:none;" onclick="deleteTodoFromModal()">Hapus</button>
+      <button id="btn-done-todo" class="generate-btn" style="background:#E8F5E9; color:#2E7D32; border:1px solid #81C784; display:none;" onclick="toggleTodoFromModal()">Selesai</button>
+      <button class="generate-btn" style="background:#C0306A; flex: 2;" onclick="saveTodo()">Simpan Jadwal</button>
     </div>
-  </div>
-
-  <!-- Summary -->
-  <div class="summary-grid" id="summary-grid" style="display:none">
-    <div class="summary-card"><div class="summary-label">Total Invoice</div><div class="summary-value" id="sum-inv">0</div></div>
-    <div class="summary-card"><div class="summary-label">Total Item</div><div class="summary-value" id="sum-items">0</div></div>
-    <div class="summary-card"><div class="summary-label">Grand Total</div><div class="summary-value" id="sum-total">Rp 0</div></div>
-  </div>
-
-  <div style="display:flex;gap:10px;flex-direction:column">
-    <button class="generate-btn" onclick="generateExcel()">
-      &#8659; Download Excel
-    </button>
-    <button class="generate-btn" id="dementer-btn" onclick="generateAndOpenDementer()" style="background:#2E86C1;gap:8px">
-      &#10024; Generate &amp; Buka Dementer
-    </button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<div class="loading-overlay" id="loading-overlay">
-  <div class="rainbow-bar"></div>
-  <div class="rainbow-bar-bottom"></div>
-  <div class="loading-stars" id="loading-stars"></div>
-  <div class="loading-spinner"></div>
-  <div class="loading-title">Mitra NVMEE ✨</div>
-  <div class="loading-sub" id="loading-sub-text">Menyiapkan file...</div>
-  <div class="loading-dots">
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
-  </div>
-  <div class="loading-msg" id="loading-msg">🎀 Sebentar ya, lagi dibuatin Sales Order-nya~ 🎀</div>
-</div>
-
 <script>
-// ── KATALOG ────────────────────────────────────────────────────────────────
+// ── NAVIGATION LOGIC ───────────────────────────────────────────────────────
+function switchView(viewId, el) {
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+  el.classList.add('active');
+  if(viewId === 'view-todo') renderCalendar();
+}
+
+// ── TO-DO LIST LOGIC (FULL CALENDAR) ───────────────────────────────────────
+let todos = JSON.parse(localStorage.getItem('nvmeeTodos')) || [];
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+function getFormattedDate(d) {
+  let dd = String(d.getDate()).padStart(2, '0');
+  let mm = String(d.getMonth() + 1).padStart(2, '0');
+  let yyyy = d.getFullYear();
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function renderCalendar() {
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  document.getElementById('cal-month-year').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+  
+  let grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  
+  let todayStr = getFormattedDate(new Date());
+
+  // Kotak kosong sebelum tanggal 1
+  for(let i = 0; i < firstDay; i++) {
+    let div = document.createElement('div');
+    div.className = 'day-full empty';
+    grid.appendChild(div);
+  }
+
+  // Isi tanggal
+  for(let i = 1; i <= daysInMonth; i++) {
+    let dStr = getFormattedDate(new Date(currentYear, currentMonth, i));
+    let div = document.createElement('div');
+    div.className = 'day-full';
+    if(dStr === todayStr) div.classList.add('today');
+
+    // Angka Tanggal
+    let numSpan = document.createElement('div');
+    numSpan.className = 'day-num';
+    numSpan.textContent = i;
+    div.appendChild(numSpan);
+    
+    // Cari tugas di tanggal ini dan buat "Pill"
+    let dayTasks = todos.filter(t => t.date === dStr);
+    dayTasks.forEach(t => {
+      let pill = document.createElement('div');
+      pill.className = 'task-pill' + (t.done ? ' done' : '');
+      pill.textContent = t.title;
+      pill.title = (t.title || '') + (t.notes ? '\n' + t.notes : ''); // Tooltip saat di-hover
+      
+      // Jika pill diklik, buka pop-up edit (cegah klik memicu tambah baru)
+      pill.onclick = (e) => {
+        e.stopPropagation();
+        openEditModal(t.id);
+      };
+      div.appendChild(pill);
+    });
+
+    // Jika ruang kosong di kotak tanggal diklik, buka pop-up tambah baru
+    div.onclick = () => {
+      openAddModal(dStr);
+    };
+    grid.appendChild(div);
+  }
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if(currentMonth > 11) { currentMonth = 0; currentYear++; }
+  else if(currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+// --- MODAL LOGIC ---
+const modal = document.getElementById('todo-modal');
+
+function openAddModal(dateStr = null) {
+  document.getElementById('modal-title').innerHTML = '&#10024; Tambah Jadwal Baru';
+  document.getElementById('todo-id').value = '';
+  document.getElementById('todo-date').value = dateStr || getFormattedDate(new Date());
+  document.getElementById('todo-title').value = '';
+  document.getElementById('todo-notes').value = '';
+  
+  // Sembunyikan tombol delete & done saat menambah baru
+  document.getElementById('btn-delete-todo').style.display = 'none';
+  document.getElementById('btn-done-todo').style.display = 'none';
+  
+  modal.classList.add('active');
+}
+
+function openEditModal(id) {
+  let t = todos.find(x => x.id === id);
+  if(!t) return;
+  
+  document.getElementById('modal-title').innerHTML = '✏️ Edit Jadwal';
+  document.getElementById('todo-id').value = t.id;
+  document.getElementById('todo-date').value = t.date;
+  document.getElementById('todo-title').value = t.title;
+  document.getElementById('todo-notes').value = t.notes || '';
+  
+  // Tampilkan tombol delete & done
+  document.getElementById('btn-delete-todo').style.display = 'block';
+  let btnDone = document.getElementById('btn-done-todo');
+  btnDone.style.display = 'block';
+  btnDone.textContent = t.done ? 'Batal Selesai' : 'Tandai Selesai';
+  
+  modal.classList.add('active');
+}
+
+function closeTodoModal() {
+  modal.classList.remove('active');
+}
+
+// Menutup modal jika klik di luar kotak putih
+modal.addEventListener('click', function(e) {
+  if (e.target === modal) closeTodoModal();
+});
+
+function saveTodo() {
+  let id = document.getElementById('todo-id').value;
+  let date = document.getElementById('todo-date').value;
+  let title = document.getElementById('todo-title').value.trim();
+  let notes = document.getElementById('todo-notes').value.trim();
+
+  if(!date || !title) { toast('Isi Tanggal dan Judul Tugas dulu!', true); return; }
+
+  if(id) {
+    // Mode Edit
+    let t = todos.find(x => x.id == id);
+    if(t) {
+      t.date = date; t.title = title; t.notes = notes;
+    }
+  } else {
+    // Mode Tambah Baru
+    todos.push({ id: Date.now(), date: date, title: title, notes: notes, done: false });
+  }
+
+  localStorage.setItem('nvmeeTodos', JSON.stringify(todos));
+  closeTodoModal();
+  
+  // Arahkan kalender ke bulan jadwal yang disave
+  let dObj = new Date(date);
+  currentMonth = dObj.getMonth();
+  currentYear = dObj.getFullYear();
+  renderCalendar();
+  
+  toast(id ? '✨ Jadwal diperbarui!' : '✨ Jadwal ditambahkan!');
+}
+
+function deleteTodoFromModal() {
+  let id = document.getElementById('todo-id').value;
+  if(!id) return;
+  if(confirm('Yakin ingin menghapus jadwal ini?')) {
+    todos = todos.filter(x => x.id != id);
+    localStorage.setItem('nvmeeTodos', JSON.stringify(todos));
+    closeTodoModal();
+    renderCalendar();
+    toast('🗑️ Jadwal dihapus.');
+  }
+}
+
+function toggleTodoFromModal() {
+  let id = document.getElementById('todo-id').value;
+  if(!id) return;
+  let t = todos.find(x => x.id == id);
+  if(t) {
+    t.done = !t.done;
+    localStorage.setItem('nvmeeTodos', JSON.stringify(todos));
+    closeTodoModal();
+    renderCalendar();
+    toast(t.done ? '✅ Ditandai Selesai!' : '⭕ Dibatalkan.');
+  }
+}
+
+// ── SALES ORDER & CATALOG LOGIC ─────────────────────────────
 const CATALOG = [
-  // ── HAIRSTYLER ──
   {sku:"NV-HR-TAURUSV2-MM",  name:"TAURUS HAIRSTYLER PINK",      platinum:270000, gold:291000, rosegold:278000, silver:337000, keys:["taurus","pink","merah muda","mm","taurus pink","taurus merah muda"]},
   {sku:"NV-HR-TAURUSV2-HJ",  name:"TAURUS HAIRSTYLER HIJAU",     platinum:270000, gold:291000, rosegold:278000, silver:337000, keys:["taurus","hijau","green","hj","lime","taurus hijau","taurus lime"]},
   {sku:"NV-HR-LIBRAV2-MM",   name:"LIBRA HAIRSTYLER PINK",       platinum:255000, gold:276000, rosegold:270000, silver:318000, keys:["libra","pink","merah muda","mm","libra pink","libra merah muda"]},
@@ -484,7 +609,6 @@ const CATALOG = [
   {sku:"NV-HR-CAPRI-K",      name:"CAPRICORN HAIRSTYLER",        platinum:136000, gold:150000, rosegold:146000, silver:167000, keys:["capricorn","capri","catokan jagung","jagung"]},
   {sku:"NV-HR-SCORPIO-P",    name:"SCORPIO HAIRSTYLER",          platinum:144000, gold:157000, rosegold:153000, silver:174000, keys:["scorpio","scorpio putih","catokan lipat","lipat"]},
   {sku:"NV-HR-CANCER-PC",    name:"CANCER HAIRSTYLER",           platinum:243000, gold:262000, rosegold:255000, silver:292000, keys:["cancer"]},
-  // ── HAIRDRYER ──
   {sku:"NV-DRY-LUNA-U",      name:"LUNA HAIRDRYER UNGU",         platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","ungu","lilac","u","purple","luna lilac","luna ungu","hairdryer","hair dryer"]},
   {sku:"NV-DRY-LUNA-KR",     name:"LUNA HAIRDRYER KREAM",        platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","kream","cream","oat","kr","luna krem","luna oat","luna cream","luna kream","hairdryer","hair dryer"]},
   {sku:"NV-DRY-LUNA-HJ",     name:"LUNA HAIRDRYER HIJAU",        platinum:274000, gold:300000, rosegold:292000, silver:332000, keys:["luna","hijau","green","hj","lime","luna hijau","luna lime","hairdryer","hair dryer"]},
@@ -493,11 +617,10 @@ const CATALOG = [
   {sku:"NV-DRY-MINA-S",      name:"MINA HAIRDRYER SILVER",       platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","silver","mina silver","highspeed","high speed"]},
   {sku:"NV-DRY-MINA-KR",     name:"MINA HAIRDRYER KREAM",        platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","kream","cream","oat","mina krem","mina oat","mina cream","mina kream","highspeed","high speed"]},
   {sku:"NV-DRY-MINA-MM",     name:"MINA HAIRDRYER PINK",         platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina","pink","merah muda","mm","mina pink","mina merah muda","highspeed","high speed"]},
-  // ── AKSESORIS ──
   {sku:"NV-SIR-BIGKTK-MM",   name:"SISIR BESAR PINK",            platinum:27000,  gold:31000,  rosegold:29000,  silver:35000,  keys:["sisir besar","sisir","bigktk","detangling","brush","pink","merah muda","mm","sisir merah muda","sisir pink"]},
   {sku:"NV-SIR-BIGKTK-U",    name:"SISIR BESAR UNGU",            platinum:27000,  gold:31000,  rosegold:29000,  silver:35000,  keys:["sisir besar","sisir","bigktk","detangling","brush","ungu","lilac","purple","u","sisir ungu","sisir lilac"]},
   {sku:"NV-SIR-BIGKTK-H",    name:"SISIR BESAR HITAM",           platinum:27000,  gold:31000,  rosegold:29000,  silver:35000,  keys:["sisir besar","sisir","bigktk","detangling","brush","hitam","black","h","sisir hitam","sisir black"]},
-  {sku:"NV-SIR-BIGKTK-HJ",   name:"SISIR BESAR HIJAU",           platinum:27000,  gold:31000,  rosegold:29000,  silver:35000,  keys:["sisir besar","sisir","bigktk","detangling","brush","hijau","lime","green","hj","sisir hijau","sisir lime"]},
+  {sku:"NV-SIR-BIGKTK-TC",   name:"SISIR BESAR TOSCA",           platinum:27000,  gold:31000,  rosegold:29000,  silver:35000,  keys:["sisir besar","sisir","bigktk","detangling","brush","tosca","tc","hijau","lime","green","sisir tosca","sisir hijau"]},
   {sku:"NV-JPT-LKUNG2-TC",   name:"HEATLESS CURL TOSCA",         platinum:41000,  gold:46000,  rosegold:44000,  silver:51000,  keys:["heatless","curl","lkung","tc","tosca","heatless tosca","heatless biru"]},
   {sku:"NV-JPT-LKUNG2-U",    name:"HEATLESS CURL UNGU",          platinum:41000,  gold:46000,  rosegold:44000,  silver:51000,  keys:["heatless","curl","lkung","ungu","lilac","purple","u","heatless ungu","heatless lilac"]},
   {sku:"NV-JPT-LKUNG2-MM",   name:"HEATLESS CURL PINK",          platinum:41000,  gold:46000,  rosegold:44000,  silver:51000,  keys:["heatless","curl","lkung","pink","merah muda","mm","heatless pink","heatless merah muda"]},
@@ -536,104 +659,24 @@ function searchCatalog(q) {
   }).filter(function(p) { return p.score > 0; }).sort(function(a,b) { return b.score - a.score; }).slice(0,7);
 }
 
-// ── STATE ──────────────────────────────────────────────────────────────────
 var invoices = [];
 var idCounter = 1000;
 
 function makeItem() { return {sku:'', qty:0, price:'', ref:null, manual:false}; }
 
-function newInvoice(diffCustomer) {
-  var year = new Date().getFullYear();
-  return {
-    id: ++idCounter,
-    num: '',
-    numPrefix: 'GRO/NVM/' + year + '/',
-    name: '',
-    tier: null,
-    diffCustomer: diffCustomer || false,
-    custReceiver: '',
-    custName: '',
-    custCode: '',
-    custPhone: '',
-    custAddr: '',
-    custCity: '',
-    custProv: '',
-    custEksp: '',
-    custNpwp: '',
-    custNpwpName: '',
-    items: [makeItem()]
-  };
-}
+function newInvoice(diffCustomer) { return { id: ++idCounter, num: '', numPrefix: 'GRO/NVM/' + new Date().getFullYear() + '/', name: '', tier: null, diffCustomer: diffCustomer || false, custReceiver: '', custName: '', custCode: '', custPhone: '', custAddr: '', custCity: '', custProv: '', custEksp: '', custNpwp: '', custNpwpName: '', items: [makeItem()] }; }
 
-// ── INVOICE CRUD ───────────────────────────────────────────────────────────
-function addInvoice(diffCustomer) {
-  invoices.push(newInvoice(diffCustomer));
-  renderAll();
-}
+function addInvoice(diffCustomer) { invoices.push(newInvoice(diffCustomer)); renderAll(); }
+function removeInvoice(id) { invoices = invoices.filter(function(i) { return i.id !== id; }); renderAll(); }
+function addItem(invId) { var inv = invoices.find(function(i) { return i.id === invId; }); if (inv) { inv.items.push(makeItem()); renderAll(); } }
+function removeItem(invId, idx) { var inv = invoices.find(function(i) { return i.id === invId; }); if (inv && inv.items.length > 1) { inv.items.splice(idx, 1); renderAll(); } }
+function setInvField(id, f, v) { var inv = invoices.find(function(i) { return i.id === id; }); if (inv) { inv[f] = v; updateSummary(); } }
+function setItemSku(invId, idx, v) { var inv = invoices.find(function(i) { return i.id === invId; }); if (!inv) return; inv.items[idx].sku = v; inv.items[idx].ref = null; showSuggest(invId, idx, v); }
+function setItemQty(invId, idx, v) { var inv = invoices.find(function(i) { return i.id === invId; }); if (inv) { inv.items[idx].qty = parseFloat(v) || 0; renderAll(); } }
+function setItemPrice(invId, idx, v) { var inv = invoices.find(function(i) { return i.id === invId; }); if (inv) { inv.items[idx].price = parseFloat(v) || 0; renderAll(); } }
+function setInvTier(invId, t) { var inv = invoices.find(function(i) { return i.id === invId; }); if (!inv) return; inv.tier = t; inv.items.forEach(function(it) { if (it.ref) { it.price = getPrice(it.ref, t); it.manual = false; } }); renderAll(); }
+function pickSuggest(invId, idx, prod) { var inv = invoices.find(function(i) { return i.id === invId; }); if (!inv) return; inv.items[idx].sku = prod.sku; inv.items[idx].price = getPrice(prod, inv.tier); inv.items[idx].ref = prod; inv.items[idx].manual = false; closeAllSuggest(); renderAll(); }
 
-function removeInvoice(id) {
-  invoices = invoices.filter(function(i) { return i.id !== id; });
-  renderAll();
-}
-
-function addItem(invId) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv) { inv.items.push(makeItem()); renderAll(); }
-}
-
-function removeItem(invId, idx) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv && inv.items.length > 1) { inv.items.splice(idx, 1); renderAll(); }
-}
-
-function setInvField(id, f, v) {
-  var inv = invoices.find(function(i) { return i.id === id; });
-  if (inv) { inv[f] = v; updateSummary(); }
-}
-
-function setItemSku(invId, idx, v) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (!inv) return;
-  inv.items[idx].sku = v;
-  inv.items[idx].ref = null;
-  showSuggest(invId, idx, v);
-}
-
-function setItemQty(invId, idx, v) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv) { inv.items[idx].qty = parseFloat(v) || 0; updateSummary(); }
-}
-
-function setItemPrice(invId, idx, v) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (inv) { inv.items[idx].price = parseFloat(v) || 0; updateSummary(); }
-}
-
-function setInvTier(invId, t) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (!inv) return;
-  inv.tier = t;
-  inv.items.forEach(function(it) {
-    if (it.ref) {
-      it.price = getPrice(it.ref, t);
-      it.manual = false;
-    }
-  });
-  renderAll();
-}
-
-function pickSuggest(invId, idx, prod) {
-  var inv = invoices.find(function(i) { return i.id === invId; });
-  if (!inv) return;
-  inv.items[idx].sku = prod.sku;
-  inv.items[idx].price = getPrice(prod, inv.tier);
-  inv.items[idx].ref = prod;
-  inv.items[idx].manual = false;
-  closeAllSuggest();
-  renderAll();
-}
-
-// ── SUGGEST ────────────────────────────────────────────────────────────────
 function showSuggest(invId, idx, q) {
   closeAllSuggest();
   var res = searchCatalog(q);
@@ -657,14 +700,8 @@ function showSuggest(invId, idx, q) {
 function closeAllSuggest() { document.querySelectorAll('.suggest-box').forEach(function(b) { b.remove(); }); }
 document.addEventListener('click', function(e) { if (!e.target.closest('.sku-wrap')) closeAllSuggest(); });
 
-// ── RENDER ─────────────────────────────────────────────────────────────────
-function calcTotal(items) {
-  return items.reduce(function(s,it) { return s + ((+it.qty||0)*(+it.price||0)); }, 0);
-}
-
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function calcTotal(items) { return items.reduce(function(s,it) { return s + ((+it.qty||0)*(+it.price||0)); }, 0); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function tierBtn(invId, t, label, inv) {
   var active = inv.tier === t;
@@ -685,28 +722,13 @@ function renderExtraCustomerCards() {
   invoices.forEach(function(inv, idx) {
     if (!inv.diffCustomer) return;
     var n = idx + 1;
-    html += '<div class="card" style="border:1.5px dashed #FF85B0">';
-    html += '<div class="card-title" style="color:#C0306A">&#9679; Nama Penerima ' + n + '</div>';
-    html += '<div class="field"><input type="text" value="' + esc(inv.custReceiver) + '" placeholder="" onchange="setInvField(' + inv.id + ',\'custReceiver\',this.value)"></div>';
-    html += '</div>';
-    html += '<div class="card" style="border:1.5px dashed #FF85B0">';
-    html += '<div class="card-title" style="color:#C0306A">&#9679; Info Customer ' + n + '</div>';
-    html += '<div class="grid2">';
-    [
-      ['Nama Customer / Akun','custName',''],
-      ['Customer Code','custCode',''],
-      ['No. Telepon','custPhone',''],
-      ['Ekspedisi','custEksp',''],
-    ].forEach(function(r) {
+    html += '<div class="card" style="border:1.5px dashed #FF85B0"><div class="card-title" style="color:#C0306A">&#9679; Nama Penerima ' + n + '</div><div class="field"><input type="text" value="' + esc(inv.custReceiver) + '" placeholder="" onchange="setInvField(' + inv.id + ',\'custReceiver\',this.value)"></div></div>';
+    html += '<div class="card" style="border:1.5px dashed #FF85B0"><div class="card-title" style="color:#C0306A">&#9679; Info Customer ' + n + '</div><div class="grid2">';
+    [['Nama Customer / Akun','custName',''],['Customer Code','custCode',''],['No. Telepon','custPhone',''],['Ekspedisi','custEksp','']].forEach(function(r) {
       html += '<div class="field"><label>' + r[0] + '</label><input type="text" value="' + esc(inv[r[1]]) + '" placeholder="' + r[2] + '" onchange="setInvField(' + inv.id + ',\'' + r[1] + '\',this.value)"></div>';
     });
     html += '<div class="field full"><label>Alamat Penerima</label><input type="text" value="' + esc(inv.custAddr) + '" placeholder="" onchange="setInvField(' + inv.id + ',\'custAddr\',this.value)"></div>';
-    [
-      ['Kota','custCity',''],
-      ['Provinsi','custProv',''],
-      ['No. NPWP','custNpwp','(opsional)'],
-      ['Nama NPWP','custNpwpName','(opsional)'],
-    ].forEach(function(r) {
+    [['Kota','custCity',''],['Provinsi','custProv',''],['No. NPWP','custNpwp','(opsional)'],['Nama NPWP','custNpwpName','(opsional)']].forEach(function(r) {
       html += '<div class="field"><label>' + r[0] + '</label><input type="text" value="' + esc(inv[r[1]]) + '" placeholder="' + r[2] + '" onchange="setInvField(' + inv.id + ',\'' + r[1] + '\',this.value)"></div>';
     });
     html += '</div></div>';
@@ -716,71 +738,30 @@ function renderExtraCustomerCards() {
 
 function renderInvoices() {
   var c = document.getElementById('invoices-container');
-  if (!invoices.length) {
-    c.innerHTML = '<p style="text-align:center;color:var(--text3);font-size:13px;padding:1rem 0">Klik tombol di bawah untuk mulai.</p>';
-    return;
-  }
+  if (!invoices.length) { c.innerHTML = '<p style="text-align:center;color:var(--text3);font-size:13px;padding:1rem 0">Klik tombol di bawah untuk mulai.</p>'; return; }
   c.innerHTML = invoices.map(function(inv) {
-    var yr = new Date().getFullYear();
-    var prefix = inv.numPrefix || ('GRO/NVM/' + yr + '/');
-    var invHead = '<div class="invoice-head">'
-      + '<div class="invoice-head-left" style="display:flex;align-items:center;gap:4px">'
-      + '<span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em">INV</span>'
-      + '<span style="font-size:12px;font-family:DM Mono,monospace;color:var(--text2);font-weight:600;white-space:nowrap">' + prefix + '</span>'
-      + '<input class="invoice-num-input" value="' + esc(inv.num) + '" onchange="setInvField(' + inv.id + ',\'num\',this.value)" placeholder="nomor" style="width:80px">'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;gap:6px">'
-      + tierBtn(inv.id, 'silver', 'Silver', inv)
-      + tierBtn(inv.id, 'gold', '★ Gold', inv)
-      + tierBtn(inv.id, 'rosegold', '✦ Rose Gold', inv)
-      + tierBtn(inv.id, 'platinum', '◆ Platinum', inv)
-      + (invoices.length > 1 ? '<button class="remove-invoice-btn" onclick="removeInvoice(' + inv.id + ')" title="Hapus">&times;</button>' : '')
-      + '</div></div>';
-
+    var prefix = inv.numPrefix || ('GRO/NVM/' + new Date().getFullYear() + '/');
+    var invHead = '<div class="invoice-head"><div class="invoice-head-left" style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em">INV</span><span style="font-size:12px;font-family:DM Mono,monospace;color:var(--text2);font-weight:600;white-space:nowrap">' + prefix + '</span><input class="invoice-num-input" value="' + esc(inv.num) + '" onchange="setInvField(' + inv.id + ',\'num\',this.value)" placeholder="nomor" style="width:80px"></div><div style="display:flex;align-items:center;gap:6px">' + tierBtn(inv.id, 'silver', 'Silver', inv) + tierBtn(inv.id, 'gold', '★ Gold', inv) + tierBtn(inv.id, 'rosegold', '✦ Rose Gold', inv) + tierBtn(inv.id, 'platinum', '◆ Platinum', inv) + (invoices.length > 1 ? '<button class="del-btn" onclick="removeInvoice(' + inv.id + ')" title="Hapus">&times;</button>' : '') + '</div></div>';
     var rows = inv.items.map(function(it, idx) {
       var matched = it.ref ? 'sku-matched' : '';
-      return '<div class="order-row-grid">'
-        + '<div class="sku-wrap ' + matched + '" id="sw-' + inv.id + '-' + idx + '">'
-        + '<input type="text" value="' + esc(it.sku) + '" oninput="setItemSku(' + inv.id + ',' + idx + ',this.value)" onfocus="showSuggest(' + inv.id + ',' + idx + ',this.value)" onblur="setTimeout(closeAllSuggest,160)" placeholder="Ketik nama produk...">'
-        + '</div>'
-        + '<input type="number" value="' + esc(it.qty) + '" min="0" oninput="setItemQty(' + inv.id + ',' + idx + ',this.value)" style="text-align:center">'
-        + '<input type="number" value="' + esc(it.price) + '" oninput="setItemPrice(' + inv.id + ',' + idx + ',this.value)" placeholder="' + (inv.tier ? 'auto' : 'pilih tier') + '">'
-        + '<div style="display:flex;align-items:center;justify-content:flex-end;font-size:12px;color:var(--text2);font-family:\'DM Mono\',monospace;padding-top:7px">' + Math.round((+it.qty||0)*(+it.price||0)).toLocaleString('id-ID') + '</div>'
-        + '<button class="del-btn" onclick="removeItem(' + inv.id + ',' + idx + ')" title="Hapus">&#10005;</button>'
-        + '</div>';
+      return '<div class="order-row-grid"><div class="sku-wrap ' + matched + '" id="sw-' + inv.id + '-' + idx + '"><input type="text" value="' + esc(it.sku) + '" oninput="setItemSku(' + inv.id + ',' + idx + ',this.value)" onfocus="showSuggest(' + inv.id + ',' + idx + ',this.value)" onblur="setTimeout(closeAllSuggest,160)" placeholder="Ketik nama produk..."></div><input type="number" value="' + esc(it.qty) + '" min="0" oninput="setItemQty(' + inv.id + ',' + idx + ',this.value)" style="text-align:center"><input type="number" value="' + esc(it.price) + '" oninput="setItemPrice(' + inv.id + ',' + idx + ',this.value)" placeholder="' + (inv.tier ? 'auto' : 'pilih tier') + '"><div id="sub-' + inv.id + '-' + idx + '" style="display:flex;align-items:center;justify-content:flex-end;font-size:12px;color:var(--text2);font-family:\'DM Mono\',monospace;padding-top:7px">' + Math.round((+it.qty||0)*(+it.price||0)).toLocaleString('id-ID') + '</div><button class="del-btn" onclick="removeItem(' + inv.id + ',' + idx + ')" title="Hapus">&#10005;</button></div>';
     }).join('');
-
-    return '<div class="invoice-block">'
-      + invHead
-      + '<div class="invoice-body">'
-      + '<div class="order-cols"><span class="order-col-label">Nama / SKU Produk</span><span class="order-col-label" style="text-align:center">QTY</span><span class="order-col-label">Harga</span><span class="order-col-label" style="text-align:right">Subtotal</span><span></span></div>'
-      + rows
-      + '<button class="add-product-btn" onclick="addItem(' + inv.id + ')">+ tambah produk</button>'
-      + '</div>'
-      + '<div class="invoice-foot">Total Invoice: <strong>Rp ' + Math.round(calcTotal(inv.items)).toLocaleString('id-ID') + '</strong></div>'
-      + '</div>';
+    return '<div class="invoice-block">' + invHead + '<div class="invoice-body"><div class="order-cols"><span class="order-col-label">Nama / SKU Produk</span><span class="order-col-label" style="text-align:center">QTY</span><span class="order-col-label">Harga</span><span class="order-col-label" style="text-align:right">Subtotal</span><span></span></div>' + rows + '<button class="add-product-btn" onclick="addItem(' + inv.id + ')">+ tambah produk</button></div><div class="invoice-foot">Total Invoice: <strong>Rp ' + Math.round(calcTotal(inv.items)).toLocaleString('id-ID') + '</strong></div></div>';
   }).join('');
 }
 
-function renderAll() {
-  renderExtraCustomerCards();
-  renderInvoices();
-  updateSummary();
-}
+function renderAll() { renderExtraCustomerCards(); renderInvoices(); updateSummary(); }
 
 function updateSummary() {
   if (!invoices.length) { document.getElementById('summary-grid').style.display = 'none'; return; }
   document.getElementById('summary-grid').style.display = 'grid';
   var totalItems = 0, grand = 0;
-  invoices.forEach(function(inv) {
-    inv.items.forEach(function(it) { totalItems += (+it.qty||0); grand += (+it.qty||0)*(+it.price||0); });
-  });
+  invoices.forEach(function(inv) { inv.items.forEach(function(it) { totalItems += (+it.qty||0); grand += (+it.qty||0)*(+it.price||0); }); });
   document.getElementById('sum-inv').textContent = invoices.length;
   document.getElementById('sum-items').textContent = totalItems;
   document.getElementById('sum-total').textContent = 'Rp ' + Math.round(grand).toLocaleString('id-ID');
 }
 
-// ── GENERATE EXCEL ─────────────────────────────────────────────────────────
 function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
 
 function generateExcel(silent) {
@@ -788,30 +769,21 @@ function generateExcel(silent) {
   var code  = getVal('cust-code');
   if (!name || !code) { toast('Isi Nama Customer dan Customer Code dulu!', true); return false; }
   if (!invoices.length) { toast('Tambahkan minimal satu invoice!', true); return false; }
-  if (!silent) showLoading('Membuat file Excel...');
 
-  var phone    = getVal('cust-phone');
-  var addr     = getVal('cust-addr');
-  var city     = getVal('cust-city');
-  var prov     = getVal('cust-prov');
-  var eksp     = getVal('cust-eksp');
-  var npwp     = getVal('cust-npwp');
-  var npwpName = getVal('cust-npwp-name');
-  var receiver = getVal('cust-receiver');
-
+  var phone    = getVal('cust-phone'), addr = getVal('cust-addr'), city = getVal('cust-city'), prov = getVal('cust-prov'), eksp = getVal('cust-eksp'), npwp = getVal('cust-npwp'), npwpName = getVal('cust-npwp-name'), receiver = getVal('cust-name');
   var headers = ['Warehouse','Marketplace','Store','Customer Code','Invoice','Ekspedisi','Resi / AWB','Waktu Pembayaran','Batas Waktu Pembayaran','Nama Penerima','Nama Akun','SKU','QTY','Satuan Harga','Voucher','Courrier','Pajak','total Berat Barang','Catatan dari Pembeli','Alamat Penerima','No. Telp','Kota','Provinsi','No NPWP','Nama NPWP','Alamat NPWP','Auto'];
   var rows = [headers];
 
   invoices.forEach(function(inv) {
-    var iCode     = (inv.diffCustomer && inv.custCode)     ? inv.custCode     : code;
-    var iName     = (inv.diffCustomer && inv.custName)     ? inv.custName     : name;
+    var iCode = (inv.diffCustomer && inv.custCode) ? inv.custCode : code;
+    var iName = (inv.diffCustomer && inv.custName) ? inv.custName : name;
     var iReceiver = (inv.diffCustomer && inv.custReceiver) ? inv.custReceiver : (receiver || name);
-    var iPhone    = (inv.diffCustomer && inv.custPhone)    ? inv.custPhone    : phone;
-    var iAddr     = (inv.diffCustomer && inv.custAddr)     ? inv.custAddr     : addr;
-    var iCity     = (inv.diffCustomer && inv.custCity)     ? inv.custCity     : city;
-    var iProv     = (inv.diffCustomer && inv.custProv)     ? inv.custProv     : prov;
-    var iEksp     = (inv.diffCustomer && inv.custEksp)     ? inv.custEksp     : eksp;
-    var iNpwp     = (inv.diffCustomer && inv.custNpwp)     ? inv.custNpwp     : npwp;
+    var iPhone = (inv.diffCustomer && inv.custPhone) ? inv.custPhone : phone;
+    var iAddr = (inv.diffCustomer && inv.custAddr) ? inv.custAddr : addr;
+    var iCity = (inv.diffCustomer && inv.custCity) ? inv.custCity : city;
+    var iProv = (inv.diffCustomer && inv.custProv) ? inv.custProv : prov;
+    var iEksp = (inv.diffCustomer && inv.custEksp) ? inv.custEksp : eksp;
+    var iNpwp = (inv.diffCustomer && inv.custNpwp) ? inv.custNpwp : npwp;
     var iNpwpName = (inv.diffCustomer && inv.custNpwpName) ? inv.custNpwpName : npwpName;
 
     inv.items.forEach(function(it) {
@@ -828,272 +800,95 @@ function generateExcel(silent) {
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Worksheet');
   var fname = 'SO_' + name.replace(/\s+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
-  setTimeout(function() {
-    XLSX.writeFile(wb, fname);
-    hideLoading();
-    if (!silent) toast('✓ "' + fname + '" berhasil didownload!');
-  }, 1200);
+  XLSX.writeFile(wb, fname);
+  if (!silent) toast('✓ "' + fname + '" berhasil didownload!');
   return true;
 }
 
-function generateAndOpenDementer() {
-  var tab = window.open('https://dementer.giisystem.com/superuser/sale/sales_order', '_blank');
-  showLoading('Membuka Dementer & menyiapkan file...');
-  setTimeout(function() {
-    var ok = generateExcel(true);
-    hideLoading();
-    if (!ok) { if (tab) tab.close(); return; }
-    toast('✓ File didownload! Di Dementer: klik Manage → Browse → Import');
-  }, 1500);
-}
-
-// ── TOAST ──────────────────────────────────────────────────────────────────
-var toastTimer;
-function toast(msg, isErr) {
-  var el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (isErr ? ' error' : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function() { el.className = 'toast'; }, 3500);
-}
-
-// ── PARSE WA ──────────────────────────────────────────────────────────────
-
-// Produk yang punya banyak warna — kalau tidak ada warna, dibagi rata
-// Format: { keywords, variants: [{sku, priority}] }
-// priority: 1 = utamakan (dapat sisa ganjil)
 var MULTI_COLOR = [
-  { keys: ['taurus'], variants: [
-    { sku: 'NV-HR-TAURUSV2-HJ', priority: 1 }, // hijau = utama
-    { sku: 'NV-HR-TAURUSV2-MM', priority: 0 }  // pink
-  ]},
-  { keys: ['libra'], variants: [
-    { sku: 'NV-HR-LIBRAV2-MM', priority: 1 },  // pink = utama
-    { sku: 'NV-HR-LIBRAV2-U',  priority: 0 }   // ungu
-  ]},
-  { keys: ['saturn'], variants: [
-    { sku: 'NV-HR-SATURN-U', priority: 1 },    // ungu = default
-  ]},
-  { keys: ['luna'], variants: [
-    { sku: 'NV-DRY-LUNA-U',  priority: 0 },
-    { sku: 'NV-DRY-LUNA-KR', priority: 0 },
-    { sku: 'NV-DRY-LUNA-HJ', priority: 1 },   // hijau = utama
-    { sku: 'NV-DRY-LUNA-B',  priority: 0 }
-  ]},
-  { keys: ['sisir besar','detangling','brush','bigktk'], variants: [
-    { sku: 'NV-SIR-BIGKTK-MM', priority: 1 },
-    { sku: 'NV-SIR-BIGKTK-U',  priority: 0 },
-    { sku: 'NV-SIR-BIGKTK-H',  priority: 0 },
-    { sku: 'NV-SIR-BIGKTK-HJ', priority: 0 }
-  ]},
-  { keys: ['heatless','curl','lkung'], variants: [
-    { sku: 'NV-JPT-LKUNG2-MM', priority: 1 },
-    { sku: 'NV-JPT-LKUNG2-U',  priority: 0 },
-    { sku: 'NV-JPT-LKUNG2-TC', priority: 0 }
-  ]},
-  { keys: ['roll','big'], variants: [
-    { sku: 'NV-ROLL-BIG-MM', priority: 1 },
-    { sku: 'NV-ROLL-BIG-H',  priority: 0 }
-  ]},
-  { keys: ['scalp','massager','grigi'], variants: [
-    { sku: 'NV-SKM-GRIGI-MM', priority: 1 },
-    { sku: 'NV-SKM-GRIGI-P',  priority: 0 }
-  ]},
-  { keys: ['scalp','love'], variants: [
-    { sku: 'NV-SKM-LOVE-MM', priority: 1 },
-    { sku: 'NV-SKM-LOVE-PC', priority: 0 }
-  ]},
-  { keys: ['pouch','puffy'], variants: [
-    { sku: 'NV-POUCH-PUFFY-MM', priority: 1 },
-    { sku: 'NV-POUCH-PUFFY-U',  priority: 0 }
-  ]},
-  { keys: ['roll jepit','roll jepit poni','jepit poni','jpt'], variants: [
-    { sku: 'NV-ROLL-JPT-MM',  priority: 1 },
-    { sku: 'NV-ROLL-JPT-U',   priority: 0 },
-    { sku: 'NV-ROLL-JPT-MGT', priority: 0 }
-  ]},
+  { keys: ['taurus'], variants: [{ sku: 'NV-HR-TAURUSV2-HJ', priority: 1 }, { sku: 'NV-HR-TAURUSV2-MM', priority: 0 }]},
+  { keys: ['libra'], variants: [{ sku: 'NV-HR-LIBRAV2-MM', priority: 1 }, { sku: 'NV-HR-LIBRAV2-U',  priority: 0 }]},
+  { keys: ['saturn'], variants: [{ sku: 'NV-HR-SATURN-U', priority: 1 }]},
+  { keys: ['luna'], variants: [{ sku: 'NV-DRY-LUNA-U',  priority: 0 },{ sku: 'NV-DRY-LUNA-KR', priority: 0 },{ sku: 'NV-DRY-LUNA-HJ', priority: 1 },{ sku: 'NV-DRY-LUNA-B',  priority: 0 }]},
+  { keys: ['sisir besar','detangling','brush','bigktk'], variants: [{ sku: 'NV-SIR-BIGKTK-MM', priority: 1 },{ sku: 'NV-SIR-BIGKTK-U',  priority: 0 },{ sku: 'NV-SIR-BIGKTK-H',  priority: 0 },{ sku: 'NV-SIR-BIGKTK-TC', priority: 0 }]},
+  { keys: ['heatless','curl','lkung'], variants: [{ sku: 'NV-JPT-LKUNG2-MM', priority: 1 },{ sku: 'NV-JPT-LKUNG2-U',  priority: 0 },{ sku: 'NV-JPT-LKUNG2-TC', priority: 0 }]},
+  { keys: ['roll','big'], variants: [{ sku: 'NV-ROLL-BIG-MM', priority: 1 },{ sku: 'NV-ROLL-BIG-H',  priority: 0 }]},
+  { keys: ['scalp','massager','grigi'], variants: [{ sku: 'NV-SKM-GRIGI-MM', priority: 1 },{ sku: 'NV-SKM-GRIGI-P',  priority: 0 }]},
+  { keys: ['scalp','love'], variants: [{ sku: 'NV-SKM-LOVE-MM', priority: 1 },{ sku: 'NV-SKM-LOVE-PC', priority: 0 }]},
+  { keys: ['pouch','puffy'], variants: [{ sku: 'NV-POUCH-PUFFY-MM', priority: 1 },{ sku: 'NV-POUCH-PUFFY-U',  priority: 0 }]},
+  { keys: ['roll jepit','roll jepit poni','jepit poni','jpt'], variants: [{ sku: 'NV-ROLL-JPT-MM',  priority: 1 },{ sku: 'NV-ROLL-JPT-U',   priority: 0 },{ sku: 'NV-ROLL-JPT-MGT', priority: 0 }]}
 ];
 
-var COLOR_WORDS = ['pink','merah muda','ungu','lilac','purple','hijau','green','hj','hitam','black','kream','cream','oat','kr','biru','sky','blue','silver','lime','putih','white','peach','tosca','magenta'];
-
-function hasColorWord(lineLow) {
-  return COLOR_WORDS.some(function(w) { return lineLow.includes(w); });
-}
-
-function splitByVariants(variants, qty, tier) {
-  // Bagi rata qty ke semua varian
-  // Varian dengan priority=1 dapat sisa ganjil
-  var n = variants.length;
-  var base = Math.floor(qty / n);
-  var sisa = qty % n;
-  return variants.map(function(v) {
-    var q = base + (v.priority === 1 ? sisa : 0);
-    if (q <= 0) return null;
-    var prod = CATALOG.find(function(p) { return p.sku === v.sku; });
-    if (!prod) return null;
-    return { prod: prod, qty: q };
-  }).filter(function(x) { return x !== null; });
-}
-
-// Kata yang diabaikan (tester, standee, dll)
+var COLOR_MAP = { 'pink':'MM','merah muda':'MM','ungu':'U','lilac':'U','purple':'U','hijau':'HJ','green':'HJ','lime':'HJ','hitam':'H','black':'H','kream':'KR','cream':'KR','oat':'KR','biru':'B','sky':'B','blue':'B','silver':'S','putih':'P','white':'P','peach':'PC','tosca':'TC','magenta':'MGT','mgt':'MGT' };
 var IGNORE_WORDS = ['tester','standee','acrylic','akrilik','bonus','free','gratis','hadiah','sample'];
 
-// Warna mapping
-var COLOR_MAP = {
-  'pink':'MM','merah muda':'MM',
-  'ungu':'U','lilac':'U','purple':'U',
-  'hijau':'HJ','green':'HJ','lime':'HJ',
-  'hitam':'H','black':'H',
-  'kream':'KR','cream':'KR','oat':'KR',
-  'biru':'B','sky':'B','blue':'B',
-  'silver':'S','putih':'P','white':'P',
-  'peach':'PC','tosca':'TC','magenta':'MGT','mgt':'MGT'
-};
-
-function shouldIgnoreLine(line) {
-  var l = line.toLowerCase();
-  var hasIgnore = IGNORE_WORDS.some(function(w) { return l.includes(w); });
-  if (!hasIgnore) return false;
-  var hasProd = CATALOG.some(function(p) { return p.keys.some(function(k) { return k.length > 3 && l.includes(k); }); });
-  return !hasProd;
-}
-
-function extractQty(line) {
-  // Angka dalam kurung: (12) atau (12pcs)
-  var m = line.match(/\((\d+)\s*(?:pc|pcs|buah|unit)?\)/i);
-  if (m) return parseInt(m[1]);
-  m = line.match(/[@=x]\s*(\d+)/i);
-  if (m) return parseInt(m[1]);
-  m = line.match(/(\d+)\s*(?:pc|pcs|buah|unit)/i);
-  if (m) return parseInt(m[1]);
-  m = line.match(/(\d+)\s*$/);
-  if (m) return parseInt(m[1]);
-  return 0;
-}
-
-function findBestProduct(lineLow) {
-  var bestMatch = null, bestScore = 0;
-  CATALOG.forEach(function(p) {
-    var score = 0;
-    if (lineLow.includes(p.sku.toLowerCase())) score += 30;
-    p.keys.forEach(function(k) {
-      var kl = k.toLowerCase();
-      if (lineLow.includes(kl)) {
-        // Exact single-word match bonus (misal "leo" tepat ada di baris)
-        var wordBonus = (new RegExp('\\b' + kl + '\\b')).test(lineLow) ? 3 : 0;
-        score += (kl.length > 6 ? 10 : kl.length > 3 ? 7 : 2) + wordBonus;
-      }
-    });
-    Object.keys(COLOR_MAP).forEach(function(word) {
-      if (lineLow.includes(word) && p.sku.endsWith('-' + COLOR_MAP[word])) score += 6;
-    });
-    if (score > bestScore) { bestScore = score; bestMatch = p; }
-  });
-  return bestScore >= 3 ? bestMatch : null;
-}
+function shouldIgnoreLine(line) { var l = line.toLowerCase(); return IGNORE_WORDS.some(function(w) { return l.includes(w); }) && !CATALOG.some(function(p) { return p.keys.some(function(k) { return k.length > 3 && l.includes(k); }); }); }
+function extractQty(line) { var m = line.match(/\((\d+)\s*(?:pc|pcs|buah|unit)?\)/i) || line.match(/[@=x]\s*(\d+)/i) || line.match(/(\d+)\s*(?:pc|pcs|buah|unit)/i) || line.match(/(\d+)\s*$/); return m ? parseInt(m[1]) : 0; }
 
 function parseWA() {
   var text = document.getElementById('wa-input').value.trim();
   if (!text) { toast('Paste teks order dulu!', true); return; }
 
-  // Bersihkan simbol di awal baris: ~, +, -, *, bullet, emoji
-  var lines = text.split('\n').map(function(l) {
-    return l.replace(/^[\s~+\-*\u2022\u25aa\u{1F525}\u{1F4E6}]+/u, '').trim();
-  }).filter(function(l) { return l.length > 1; });
-
-  var results = [];
-  var currentParentSku = null; // SKU produk induk untuk handle sub-baris warna
+  var lines = text.split('\n').map(function(l) { return l.replace(/^[\s~+\-*\u2022\u25aa\u{1F525}\u{1F4E6}]+/u, '').trim(); }).filter(function(l) { return l.length > 1; });
+  var results = [], currentParentSku = null;
 
   for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
-    var lineLow = line.toLowerCase();
-
-    // Skip baris tester/standee/acrylic
+    var line = lines[i], lineLow = line.toLowerCase();
     if (shouldIgnoreLine(line)) continue;
-
     var qty = extractQty(line);
 
-    // Cek apakah baris ini sub-item warna (contoh: "Pink (12)", "Ungu (12)")
-    // Kondisi: ada kata warna, tidak ada nama produk utama, baris pendek
     var isColorSubLine = false;
     if (currentParentSku) {
       var hasColor = Object.keys(COLOR_MAP).some(function(w) { return lineLow.includes(w); });
-      var hasProductKeyword = CATALOG.some(function(p) {
-        return p.sku !== currentParentSku && p.keys.some(function(k) {
-          return k.length > 4 && lineLow.includes(k.toLowerCase());
-        });
-      });
-      if (hasColor && !hasProductKeyword && line.length < 35) {
-        isColorSubLine = true;
-      }
+      var hasProductKeyword = CATALOG.some(function(p) { return p.sku !== currentParentSku && p.keys.some(function(k) { return k.length > 4 && lineLow.includes(k.toLowerCase()); }); });
+      if (hasColor && !hasProductKeyword && line.length < 35) isColorSubLine = true;
     }
 
     if (isColorSubLine && qty > 0) {
-      // Cari varian warna dari produk induk
-      var base = currentParentSku.replace(/-[^-]+$/, '');
-      var found = null;
-      Object.keys(COLOR_MAP).forEach(function(word) {
-        if (found) return;
-        if (lineLow.includes(word)) {
-          var suffix = COLOR_MAP[word];
-          var candidate = CATALOG.find(function(p) {
-            return p.sku.startsWith(base) && p.sku.endsWith('-' + suffix);
-          });
-          if (candidate) found = candidate;
-        }
-      });
+      var base = currentParentSku.replace(/-[^-]+$/, ''), found = null;
+      Object.keys(COLOR_MAP).forEach(function(word) { if (!found && lineLow.includes(word)) found = CATALOG.find(function(p) { return p.sku.startsWith(base) && p.sku.endsWith('-' + COLOR_MAP[word]); }); });
       if (found) { results.push({ prod: found, qty: qty }); continue; }
     }
 
-    // Cek multi-color (tanpa keterangan warna)
     var multiMatch = null;
-    var hasColorInLine = Object.keys(COLOR_MAP).some(function(w) { return lineLow.includes(w); });
-    if (!hasColorInLine) {
-      MULTI_COLOR.forEach(function(mc) {
-        if (multiMatch) return;
-        if (mc.keys.some(function(k) { return lineLow.includes(k.toLowerCase()); })) multiMatch = mc;
-      });
+    if (!Object.keys(COLOR_MAP).some(function(w) { return lineLow.includes(w); })) {
+      MULTI_COLOR.forEach(function(mc) { if (!multiMatch && mc.keys.some(function(k) { return lineLow.includes(k.toLowerCase()); })) multiMatch = mc; });
     }
 
     if (multiMatch && qty > 0) {
       var inv0 = invoices[invoices.length - 1];
-      splitByVariants(multiMatch.variants, qty, inv0 ? inv0.tier : null).forEach(function(s) { results.push(s); });
-      currentParentSku = multiMatch.variants[0].sku;
-      continue;
+      var baseQ = Math.floor(qty / multiMatch.variants.length), sisaQ = qty % multiMatch.variants.length;
+      multiMatch.variants.forEach(function(v) {
+        var q = baseQ + (v.priority === 1 ? sisaQ : 0);
+        if (q > 0) { var prod = CATALOG.find(function(p) { return p.sku === v.sku; }); if (prod) results.push({ prod: prod, qty: q }); }
+      });
+      currentParentSku = multiMatch.variants[0].sku; continue;
     }
 
-    // Cari produk normal
-    var prod = findBestProduct(lineLow);
-    if (prod && qty > 0) {
-      results.push({ prod: prod, qty: qty });
-      currentParentSku = prod.sku;
-    } else if (prod) {
-      // Baris nama produk tanpa qty — set sebagai parent untuk baris warna berikutnya
-      currentParentSku = prod.sku;
-    } else {
-      // Coba set parent dari nama saja (tanpa warna)
+    var bestMatch = null, bestScore = 0;
+    CATALOG.forEach(function(p) {
+      var score = 0;
+      if (lineLow.includes(p.sku.toLowerCase())) score += 30;
+      p.keys.forEach(function(k) { var kl = k.toLowerCase(); if (lineLow.includes(kl)) score += (kl.length > 6 ? 10 : kl.length > 3 ? 7 : 2) + ((new RegExp('\\b' + kl + '\\b')).test(lineLow) ? 3 : 0); });
+      Object.keys(COLOR_MAP).forEach(function(word) { if (lineLow.includes(word) && p.sku.endsWith('-' + COLOR_MAP[word])) score += 6; });
+      if (score > bestScore) { bestScore = score; bestMatch = p; }
+    });
+    
+    if (bestScore >= 3 && qty > 0) { results.push({ prod: bestMatch, qty: qty }); currentParentSku = bestMatch.sku; }
+    else if (bestScore >= 3) { currentParentSku = bestMatch.sku; }
+    else {
       var parent = null;
-      CATALOG.forEach(function(p) {
-        if (parent) return;
-        var sc = 0;
-        p.keys.forEach(function(k) { if (k.length > 3 && lineLow.includes(k.toLowerCase())) sc += 5; });
-        if (sc > 0) parent = p;
-      });
+      CATALOG.forEach(function(p) { if (!parent) { var sc = 0; p.keys.forEach(function(k) { if (k.length > 3 && lineLow.includes(k.toLowerCase())) sc += 5; }); if (sc > 0) parent = p; } });
       if (parent) currentParentSku = parent.sku;
     }
   }
 
-  if (!results.length) {
-    document.getElementById('wa-result').innerHTML = '<span style="color:#C0392B">Tidak ada produk dikenali.</span>';
-    return;
-  }
+  if (!results.length) { document.getElementById('wa-result').innerHTML = '<span style="color:#C0392B">Tidak ada produk dikenali.</span>'; return; }
 
   var inv = invoices[invoices.length - 1];
   if (!inv) { addInvoice(false); inv = invoices[0]; }
   inv.items = inv.items.filter(function(it) { return it.sku !== ''; });
-  results.forEach(function(r) {
-    inv.items.push({ sku: r.prod.sku, qty: r.qty, price: getPrice(r.prod, inv.tier), ref: r.prod, manual: false });
-  });
+  results.forEach(function(r) { inv.items.push({ sku: r.prod.sku, qty: r.qty, price: getPrice(r.prod, inv.tier), ref: r.prod, manual: false }); });
 
   renderAll();
   document.getElementById('wa-input').value = '';
@@ -1101,61 +896,20 @@ function parseWA() {
   setTimeout(function() { document.getElementById('wa-result').innerHTML = ''; }, 3000);
 }
 
-// ── LOADING ───────────────────────────────────────────────────────────────
-var loadingMsgs = [
-  '🎀 Sebentar ya, lagi dibuatin Sales Order-nya~ 🎀',
-  '🌸 Bentar ya kak, lagi proses~ 🌸',
-  '✨ Hampir selesai! Sabar dikit ya~ ✨',
-  '💛 Lagi ngitung total belanjaan~ 💛',
-  '🫶 Makasih udah pake Mitra NVMEE! 🫶',
-];
-var loadingStars = ['⭐','🌸','💛','🩷','💙','🌼','✨','🎀','🦋','🌟'];
-var loadingTimer = null;
-var starInterval = null;
-
-function showLoading(msg) {
-  var overlay = document.getElementById('loading-overlay');
-  var subText = document.getElementById('loading-sub-text');
-  var msgEl = document.getElementById('loading-msg');
-  var starsEl = document.getElementById('loading-stars');
-
-  subText.textContent = msg || 'Menyiapkan file...';
-  msgEl.textContent = loadingMsgs[Math.floor(Math.random() * loadingMsgs.length)];
-  overlay.classList.add('show');
-
-  // Generate floating stars
-  starsEl.innerHTML = '';
-  for (var i = 0; i < 15; i++) {
-    (function(i) {
-      var s = document.createElement('div');
-      s.className = 'star';
-      s.textContent = loadingStars[i % loadingStars.length];
-      s.style.left = (Math.random() * 90 + 5) + '%';
-      s.style.top = (Math.random() * 90 + 5) + '%';
-      s.style.fontSize = (14 + Math.random() * 16) + 'px';
-      s.style.animationDelay = (Math.random() * 2) + 's';
-      s.style.animationDuration = (2 + Math.random() * 2) + 's';
-      starsEl.appendChild(s);
-    })(i);
-  }
-
-  // Rotate messages
-  var msgIdx = 0;
-  loadingTimer = setInterval(function() {
-    msgIdx = (msgIdx + 1) % loadingMsgs.length;
-    msgEl.textContent = loadingMsgs[msgIdx];
-  }, 1200);
+// ── TOAST & UTILS ────────────────────────────────────────────────────────
+var toastTimer;
+function toast(msg, isErr) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show' + (isErr ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { el.className = 'toast'; }, 3500);
 }
 
-function hideLoading() {
-  var overlay = document.getElementById('loading-overlay');
-  overlay.classList.remove('show');
-  if (loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
-}
-
-// ── INIT ───────────────────────────────────────────────────────────────────
 document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('id-ID', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+// INISIALISASI
 addInvoice(false);
+renderCalendar();
 </script>
 </body>
 </html>
