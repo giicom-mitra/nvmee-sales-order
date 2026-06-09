@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>NVMEE Mitra & Sales Order Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -45,7 +45,6 @@
     white-space: nowrap;
     border-right: 3px solid var(--accent);
     width: 0;
-    /* 11ch = 11 Karakter dari "Mitra NVMEE" */
     animation: typing 1.5s steps(11, end) infinite alternate, blink .75s step-end infinite;
   }
   @keyframes typing { from { width: 0 } to { width: 11ch } }
@@ -60,7 +59,7 @@
   
   /* ── LAYOUT LOGIN ── */
   #auth-screen { position: fixed; top:0; left:0; width:100vw; height:100vh; background: var(--bg); display: flex; align-items:center; justify-content:center; z-index: 2000; }
-  .auth-card { background: #fff; width: 360px; border-radius: var(--radius); padding: 30px; box-shadow: 0 10px 40px rgba(192,48,106,0.15); text-align: center; border: 1px solid var(--border); }
+  .auth-card { background: #fff; width: 360px; max-width: 90%; border-radius: var(--radius); padding: 30px; box-shadow: 0 10px 40px rgba(192,48,106,0.15); text-align: center; border: 1px solid var(--border); }
   .auth-card h2 { margin-bottom: 5px; color: var(--text); font-weight: 800; font-size: 22px; }
   .auth-card p { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
   .auth-input { width: 100%; padding: 12px 14px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; transition: .2s; background: var(--surface); }
@@ -246,6 +245,54 @@
   .toast.error { background: #991B1B; border-left-color: #FCA5A5;}
 
   .edit-row-grid { display: grid; grid-template-columns: minmax(0,2fr) 60px minmax(0,1.2fr) 30px; gap: 6px; align-items: center; margin-bottom: 8px; }
+
+  /* =========================================================
+     📱 RESPONSIVE MOBILE (TAMPILAN HP)
+     Sama sekali tidak mengubah logika, hanya CSS tambahan!
+     ========================================================= */
+  @media (max-width: 768px) {
+    /* 1. Layout Utama (Sidebar pindah ke bawah jadi Tab Menu) */
+    .app-wrapper { flex-direction: column; }
+    .sidebar { width: 100vw; height: auto; flex-direction: row; overflow-x: auto; order: 2; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 100; -ms-overflow-style: none; scrollbar-width: none; }
+    .sidebar::-webkit-scrollbar { display: none; } /* Hilangkan scrollbar default */
+    
+    .main-area { order: 1; flex: 1; overflow: hidden; height: calc(100vh - 60px); }
+    
+    /* 2. Sembunyikan Logo di HP agar ruang menu lebih lega */
+    .sidebar-logo { display: none; }
+    
+    /* 3. Susun Menu Berjejer Horizontal */
+    .nav-list { flex-direction: row; padding: 0; margin: 0; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    .nav-item { white-space: nowrap; font-size: 12px; padding: 10px 16px; border-radius: 20px; }
+    
+    /* 4. Sesuaikan Tombol Keluar Sesi */
+    .logout-btn { margin: 0 0 0 10px; padding: 10px 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; white-space: nowrap; font-size: 12px; }
+
+    /* 5. Ubah Form/Grid 2 Kolom jadi 1 Kolom memanjang ke bawah */
+    .grid2 { grid-template-columns: 1fr !important; }
+    
+    /* 6. Widget Dashboard (Minimal 2 Kotak atas-bawah di HP) */
+    .widget-grid { grid-template-columns: 1fr 1fr !important; }
+    
+    /* 7. Aman dari "Penyet": Beri Scroll Samping untuk Tabel Order & Detail */
+    .invoice-body, #edit-inv-items { overflow-x: auto; padding-bottom: 10px; }
+    .order-cols, .order-row-grid, .edit-row-grid { min-width: 600px; /* Paksa lebar minimal agar tabel tidak rusak */ }
+    
+    /* 8. Sesuaikan Lebar Pop-up / Modal */
+    .modal-content { width: 95% !important; padding: 15px; margin: 10px; }
+    
+    /* 9. Header dan Tombol Atas */
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .topbar { padding: 0 1rem; justify-content: space-between; gap: 10px; }
+    
+    /* 10. Summary di Generator SO */
+    .summary-grid { grid-template-columns: 1fr !important; gap: 6px; }
+  }
+
+  @media (max-width: 480px) {
+    /* Jika HP layarnya sangat kecil atau posisi portrait sempit */
+    .widget-grid { grid-template-columns: 1fr !important; }
+  }
 </style>
 </head>
 <body>
