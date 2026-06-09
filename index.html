@@ -7,6 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
 <style>
   :root {
     --bg: #FFF0F5; --surface: #FFFFFF; --surface2: #FEFAD0;
@@ -410,7 +413,7 @@
 
       <div id="view-todo" class="view-section">
         <div class="page-header" style="align-items: center;">
-          <div><h1>Kalender Tim</h1><p>Jadwal tersimpan aman secara offline di browser Anda.</p></div>
+          <div><h1>Kalender Tim</h1><p>Jadwal tersimpan aman secara sinkronisasi Cloud.</p></div>
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <div style="position:relative; width: 240px;">
               <input type="text" id="cal-search" placeholder="🔍 Cari judul/catatan jadwal..." oninput="searchCalendar()">
@@ -634,7 +637,33 @@
 
 <script>
 // ==========================================
-// 0. AUTHENTICATION & USER MANAGEMENT
+// 0. FIREBASE CONFIGURATION & CLOUD SYNC
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAuJZlD3iQ0-x_MmzUs92BO_ubbGnLDUq8",
+  authDomain: "nvmee-mitra-5c74d.firebaseapp.com",
+  projectId: "nvmee-mitra-5c74d",
+  storageBucket: "nvmee-mitra-5c74d.firebasestorage.app",
+  messagingSenderId: "523135345299",
+  appId: "1:523135345299:web:5341ea7570c74eb0462366",
+  measurementId: "G-DQYC3CXY3P"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Fungsi rahasia penyimpan data otomatis ke Cloud
+function saveToCloud() {
+    db.collection('system_data').doc('main_record').set({
+        users: users,
+        catalog: CATALOG,
+        invoices: savedInvoices,
+        todos: todos,
+        lastUpdated: Date.now()
+    }, {merge: true}).catch(err => console.error("Firebase Sync Error: ", err));
+}
+
+// ==========================================
+// 1. DATA INITIALIZATION & DEFAULT CATALOG
 // ==========================================
 let users = JSON.parse(localStorage.getItem('nvmee_users')) || [];
 if(!users.find(u => u.username === 'Robsie')) {
@@ -719,15 +748,14 @@ function handleAuth() {
         users.push(newUser);
         localStorage.setItem('nvmee_users', JSON.stringify(users));
         localStorage.setItem('nvmee_session', JSON.stringify({user: newUser, date: new Date().toDateString()}));
+        
+        saveToCloud(); // Sync ke Firebase
         window.location.reload();
     }
 }
 
 function logout() { localStorage.removeItem('nvmee_session'); window.location.reload(); }
 
-// ==========================================
-// 1. DATA INITIALIZATION & DEFAULT CATALOG
-// ==========================================
 let todos = JSON.parse(localStorage.getItem('nvmee_todos')) || [];
 let savedInvoices = JSON.parse(localStorage.getItem('nvmee_saved_invoices')) || [];
 
@@ -795,10 +823,8 @@ if (savedVer !== currentVer) {
 // FUNGSI UNTUK MENDAPATKAN TANGGAL EFEKTIF INVOICE (CASH BASIS / MENGAPUNG)
 function getEffectiveDate(inv) {
   if (inv.paid) {
-    // Jika sudah bayar, gunakan tanggal bayar (jika tidak ada, mundur ke timestamp buat)
     return inv.paidDate ? new Date(inv.paidDate) : new Date(inv.timestamp);
   } else {
-    // JIKA BELUM BAYAR: Selalu dianggap masuk ke bulan saat ini (mengapung sampai dibayar)
     return new Date(); 
   }
 }
@@ -934,6 +960,7 @@ function openCatalogModal() {
 }
 
 function closeCatalogModal() { document.getElementById('katalog-modal').classList.remove('active'); }
+
 function saveCatalog() {
   let sku = document.getElementById('kat-sku').value.trim();
   let name = document.getElementById('kat-name').value.trim();
@@ -949,13 +976,18 @@ function saveCatalog() {
   let idx = CATALOG.findIndex(p => p.sku === sku);
   let newProd = { sku, name, category, retail, silver, gold, rosegold, platinum, keys };
   if(idx !== -1) CATALOG[idx] = newProd; else CATALOG.push(newProd);
+  
   localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG));
+  saveToCloud(); // Sync ke Firebase
+
   closeCatalogModal(); toast('Katalog berhasil disimpan!'); renderKatalog();
 }
+
 function deleteKatalog(sku) {
   if(confirm(`Yakin hapus produk SKU: ${sku}?`)) {
     CATALOG = CATALOG.filter(p => p.sku !== sku);
     localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG));
+    saveToCloud(); // Sync ke Firebase
     toast('Produk dihapus!'); renderKatalog();
   }
 }
@@ -981,7 +1013,6 @@ function renderInvoiceList() {
     let d = new Date(inv.timestamp);
     let dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
     
-    // Jika sudah bayar, tampilkan juga kapan dibayarnya
     let paidDateStr = '';
     if(inv.paid && inv.paidDate) {
        let pd = new Date(inv.paidDate);
@@ -998,7 +1029,6 @@ function renderInvoiceList() {
       </div>
     `;
 
-    // STATUS INVOICE TETAP MENGGUNAKAN OMZET SEMULA (TIDAK DIBAGI 1.11)
     let html = `
       <div class="inv-card">
          <button class="inv-del" onclick="deleteSavedInvoice(${inv.id})">✖</button>
@@ -1027,15 +1057,15 @@ function toggleInvoiceStatus(id) {
   let idx = savedInvoices.findIndex(i => i.id === id);
   if(idx > -1) {
     if (savedInvoices[idx].paid) {
-        // Jika batal dibayar
         savedInvoices[idx].paid = false;
         savedInvoices[idx].paidDate = null;
     } else {
-        // Jika ditandai dibayar, kunci tanggal bayar saat ini
         savedInvoices[idx].paid = true;
         savedInvoices[idx].paidDate = Date.now();
     }
     localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+    saveToCloud(); // Sync ke Firebase
+
     renderInvoiceList();
     updateDashboard();
   }
@@ -1045,6 +1075,8 @@ function deleteSavedInvoice(id) {
   if(confirm('Yakin ingin menghapus riwayat invoice ini secara permanen?')) {
     savedInvoices = savedInvoices.filter(i => i.id !== id);
     localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+    saveToCloud(); // Sync ke Firebase
+
     renderInvoiceList();
     updateDashboard();
   }
@@ -1144,6 +1176,8 @@ function saveEditedInvoice() {
   savedInvoices[idx].totalQty = newTotalQty;
   
   localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+  saveToCloud(); // Sync ke Firebase
+
   closeInvEditModal();
   toast('Invoice berhasil diperbarui!');
   renderInvoiceList();
@@ -1155,6 +1189,8 @@ function markTodoDoneById(id) {
    if(index !== -1) {
       todos[index].done = true;
       localStorage.setItem('nvmee_todos', JSON.stringify(todos));
+      saveToCloud(); // Sync ke Firebase
+
       toast('Jadwal ditandai selesai! ✅');
       renderCalendar();
       updateDashboard();
@@ -1165,6 +1201,8 @@ function deleteTodoById(id) {
    if(confirm('Hapus jadwal ini dari daftar?')) {
       todos = todos.filter(x => x.id !== id);
       localStorage.setItem('nvmee_todos', JSON.stringify(todos));
+      saveToCloud(); // Sync ke Firebase
+
       toast('Jadwal dihapus! 🗑️');
       renderCalendar();
       updateDashboard();
@@ -1179,7 +1217,6 @@ function updateDashboard() {
   let now = new Date();
   
   savedInvoices.forEach(inv => {
-    // KUNCI CASH BASIS: Gunakan getEffectiveDate()
     let d = getEffectiveDate(inv);
     let isCurrentMonth = (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear());
 
@@ -1195,7 +1232,6 @@ function updateDashboard() {
       if (inv.region === 'jawa') totalJawa += t;
       if (inv.region === 'luar_jawa') totalLuarJawa += t;
 
-      // PENTING: Mitra Total tetap dicatat berdasarkan omzet semula
       if(inv.customer) { 
         let rawName = inv.customer.trim();
         let keyName = rawName.toUpperCase();
@@ -1224,7 +1260,6 @@ function updateDashboard() {
     }
   });
 
-  // TAMPILAN DASHBOARD: MENAMPILKAN OMZET SEMULA DIATAS, FINAL OMZET DIBAWAH
   document.getElementById('d-raw-po').textContent = 'Rp ' + totalPO.toLocaleString('id-ID');
   document.getElementById('d-total-po').textContent = 'Rp ' + Math.round(totalPO / 1.11).toLocaleString('id-ID');
   
@@ -1276,7 +1311,6 @@ function updateDashboard() {
     </li>`;
   }).join('') : '<li style="justify-content:center;color:var(--text3)">Kosong 🎉</li>';
 
-  // TOP MITRA TETAP MENGGUNAKAN OMZET SEMULA (TIDAK DIBAGI 1,11)
   let mArr = Object.values(mitraTotal).sort((a,b) => b.total - a.total).slice(0,5);
   document.getElementById('d-top-mitra').innerHTML = mArr.length ? mArr.map((m,i) => `<li><div>${i+1}. <strong>${m.name}</strong></div><div style="font-weight:700">Rp ${m.total.toLocaleString('id-ID')}</div></li>`).join('') : '<li style="justify-content:center;color:var(--text3)">Belum ada data SO</li>';
   
@@ -1293,7 +1327,6 @@ function renderReportList() {
    
    let grouped = {};
    savedInvoices.forEach(inv => {
-      // KUNCI CASH BASIS: Gunakan getEffectiveDate()
       let d = getEffectiveDate(inv);
       let key = `${d.getFullYear()}-${d.getMonth()}`; 
       let label = `${monthNamesAll[d.getMonth()]} ${d.getFullYear()}`;
@@ -1322,7 +1355,6 @@ function renderReportList() {
       let isCurrent = (new Date().getFullYear() === g.year && new Date().getMonth() === g.month);
       let badge = isCurrent ? '<span style="background:var(--accent); color:#fff; padding:2px 6px; border-radius:4px; font-size:9px;">BULAN INI</span>' : '';
       
-      // TAMPILAN REPORT LIST MENGGUNAKAN OMZET SEMULA DAN FINAL OMZET
       let html = `
         <div class="card" style="cursor:pointer; transition:0.2s; position:relative;" onclick="showReportDetail('${key}')" onmouseover="this.style.borderColor='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)'">
            <div style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -1354,11 +1386,10 @@ function showReportDetail(key) {
    let omset = 0, qty = 0, paid = 0, unpaid = 0;
    let jawa = 0, luar = 0;
    let skuCountA = {}, skuCountB = {};
-   let rdMitra = {}; // Top Mitra untuk detail report
+   let rdMitra = {}; 
    let weekly = [ {paid:0, unpaid:0}, {paid:0, unpaid:0}, {paid:0, unpaid:0}, {paid:0, unpaid:0} ];
    
    savedInvoices.forEach(inv => {
-      // KUNCI CASH BASIS: Gunakan getEffectiveDate()
       let d = getEffectiveDate(inv);
       if(d.getFullYear() == year && d.getMonth() == month) {
          let t = inv.total || 0;
@@ -1369,7 +1400,6 @@ function showReportDetail(key) {
          if(inv.region === 'jawa') jawa += t;
          if(inv.region === 'luar_jawa') luar += t;
          
-         // Top Mitra Bulanan (Menggunakan omzet semula)
          if(inv.customer) {
             let rawName = inv.customer.trim();
             let keyName = rawName.toUpperCase();
@@ -1396,7 +1426,6 @@ function showReportDetail(key) {
       }
    });
    
-   // TAMPILAN REPORT DETAIL MENGGUNAKAN OMZET SEMULA DAN FINAL OMZET
    document.getElementById('rm-raw-omset').textContent = `Rp ${omset.toLocaleString('id-ID')}`;
    document.getElementById('rm-omset').textContent = `Rp ${Math.round(omset / 1.11).toLocaleString('id-ID')}`;
    
@@ -1414,7 +1443,6 @@ function showReportDetail(key) {
    
    document.getElementById('rm-qty').textContent = `${qty.toLocaleString('id-ID')} Pcs`;
    
-   // Render Top Mitra Report Bulanan
    let mArr = Object.values(rdMitra).sort((a,b) => b.total - a.total).slice(0,5);
    document.getElementById('rd-top-mitra').innerHTML = mArr.length ? mArr.map((m,i) => `<li><div>${i+1}. <strong>${m.name}</strong></div><div style="font-weight:700">Rp ${m.total.toLocaleString('id-ID')}</div></li>`).join('') : '<li style="justify-content:center;color:var(--text3)">Belum ada data SO</li>';
 
@@ -1428,7 +1456,6 @@ function showReportDetail(key) {
       ? skuArrB.map((s,i) => `<li><div>${i+1}. <strong>${s.sku}</strong></div><div class="badge">${s.qty} Pcs</div></li>`).join('') 
       : '<li style="justify-content:center;color:var(--text3)">Belum ada data</li>';
       
-   // GRAFIK MINGGUAN JUGA MENGGUNAKAN FINAL OMZET (DIBAGI 1,11)
    let weeklyFinal = weekly.map(w => ({
       paid: Math.round(w.paid / 1.11),
       unpaid: Math.round(w.unpaid / 1.11)
@@ -1577,6 +1604,8 @@ function processExcelData(data) {
     });
     
     localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+    saveToCloud(); // Sync ke Firebase
+
     updateDashboard();
     if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList();
     if (document.getElementById('view-report').classList.contains('active')) renderReportList();
@@ -1691,11 +1720,13 @@ function saveTodo() {
   } 
   
   localStorage.setItem('nvmee_todos', JSON.stringify(todos)); 
+  saveToCloud(); // Sync ke Firebase
+
   toast('Jadwal disimpan!'); closeTodoModal(); renderCalendar(); updateDashboard(); 
 }
 
-function deleteTodo() { let id = document.getElementById('todo-id').value; if(confirm('Yakin hapus?')) { todos = todos.filter(x => x.id !== id); localStorage.setItem('nvmee_todos', JSON.stringify(todos)); toast('Jadwal dihapus!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
-function toggleDoneTodo() { let id = document.getElementById('todo-id').value; let index = todos.findIndex(x => x.id === id); if(index !== -1) { todos[index].done = !todos[index].done; localStorage.setItem('nvmee_todos', JSON.stringify(todos)); toast('Status diperbarui!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
+function deleteTodo() { let id = document.getElementById('todo-id').value; if(confirm('Yakin hapus?')) { todos = todos.filter(x => x.id !== id); localStorage.setItem('nvmee_todos', JSON.stringify(todos)); saveToCloud(); toast('Jadwal dihapus!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
+function toggleDoneTodo() { let id = document.getElementById('todo-id').value; let index = todos.findIndex(x => x.id === id); if(index !== -1) { todos[index].done = !todos[index].done; localStorage.setItem('nvmee_todos', JSON.stringify(todos)); saveToCloud(); toast('Status diperbarui!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
 
 // ==========================================
 // 4. SO ENGINE DATA & LOGIC 
@@ -1732,12 +1763,9 @@ function renderAll() { renderExtraCustomerCards(); renderInvoices(); updateSumma
 function updateSummary() { if (!invoices.length) { document.getElementById('summary-grid').style.display = 'none'; return; } document.getElementById('summary-grid').style.display = 'grid'; var totalItems = 0, grand = 0; invoices.forEach(function(inv) { inv.items.forEach(function(it) { totalItems += (+it.qty||0); grand += (+it.qty||0)*(+it.price||0); }); }); document.getElementById('sum-inv').textContent = invoices.length; document.getElementById('sum-items').textContent = totalItems; document.getElementById('sum-total').textContent = 'Rp ' + Math.round(grand).toLocaleString('id-ID'); }
 
 function splitByVariants(variants, qty, tier) { var n = variants.length; var base = Math.floor(qty / n); var sisa = qty % n; var res = []; for(var i=0; i<n; i++){ var q = base + (sisa > 0 ? 1 : 0); sisa--; if(q<=0) continue; var prod = CATALOG.find(function(p) { return p.sku === variants[i].sku; }); if(prod) res.push({prod: prod, qty: q}); } return res; }
-
 function shouldIgnoreLine(line) { var l = line.toLowerCase(); var hasIgnore = IGNORE_WORDS.some(function(w) { return l.includes(w); }); if (!hasIgnore) return false; var hasProd = CATALOG.some(function(p) { return p.keys && p.keys.some(function(k) { return k.length > 3 && l.includes(k); }); }); return !hasProd; }
 function extractQty(line) { var m = line.match(/\((\d+)\s*(?:pc|pcs|buah|unit)?\)/i); if (m) return parseInt(m[1]); m = line.match(/[@=x]\s*(\d+)/i); if (m) return parseInt(m[1]); m = line.match(/(\d+)\s*(?:pc|pcs|buah|unit)/i); if (m) return parseInt(m[1]); m = line.match(/(\d+)\s*$/); if (m) return parseInt(m[1]); return 1; }
-
 function findBestProduct(lineLow) { var bestMatch = null, bestScore = 0; var words = lineLow.replace(/[^\w\s]/gi, '').split(/\s+/).filter(function(w){return w.length>1;}); CATALOG.forEach(function(p) { var score = 0, mc = 0; if (lineLow.includes(p.sku.toLowerCase())) { score+=50; mc+=2; } if(p.keys) { p.keys.forEach(function(k) { var kl=k.toLowerCase(); if(lineLow.includes(kl)){ score+=(kl.length>5?12:6); mc++; } }); } words.forEach(function(w){ if(p.name.toLowerCase().includes(w)){ score+=3; mc++; } }); var hasCol = false; Object.keys(COLOR_MAP).forEach(function(cw) { if (lineLow.includes(cw) && p.sku.endsWith('-'+COLOR_MAP[cw])) { score+=15; mc+=2; hasCol = true; } }); if(mc >= (hasCol?2:1)) score+=20; if(score>bestScore && score>=10){ bestScore=score; bestMatch=p; } }); return bestMatch; }
-
 function parseWA() {
   var text = document.getElementById('wa-input').value.trim(); if (!text) { toast('Paste teks order dulu!', true); return; }
   var lines = text.split('\n').map(function(l) { return l.replace(/^[\s~+\-*\u2022\u25aa\u{1F525}\u{1F4E6}]+/u, '').trim(); }).filter(function(l) { return l.length > 1; });
@@ -1780,7 +1808,10 @@ function generateExcel(silent) {
   let selectedRegion = getVal('cust-region');
   let generatedInvNo = (invoices[0].numPrefix||('GRO/NVM/'+new Date().getFullYear()+'/')) + invoices[0].num;
   savedInvoices.push({ id: Date.now(), invNum: generatedInvNo, customer: name, total: allTotal, totalQty: allQty, items: allItemsDashboard, timestamp: Date.now(), paid: false, paidDate: null, region: selectedRegion }); 
+  
   localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
+  saveToCloud(); // Sync ke Firebase
+
   updateDashboard();
   if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList();
   if (document.getElementById('view-report').classList.contains('active')) renderReportList();
@@ -1788,8 +1819,51 @@ function generateExcel(silent) {
   var ws = XLSX.utils.aoa_to_sheet(rows); var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Worksheet'); var fname = 'SO_' + name.replace(/\s+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.xlsx'; XLSX.writeFile(wb, fname); if (!silent) toast('✓ File SO didownload & masuk Dashboard!'); return true;
 }
 
-// Initial Call
-initAuth();
+// ==========================================
+// 5. INISIALISASI REAL-TIME CLOUD SYNC
+// ==========================================
+let isFirstLoad = true;
+
+// Fitur OnSnapshot: Membaca data pertama kali, DAN selalu memantau jika ada perubahan (Otomatis Tersinkron)
+db.collection('system_data').doc('main_record').onSnapshot((doc) => {
+    if (doc.exists) {
+        let data = doc.data();
+        users = data.users || users;
+        CATALOG = data.catalog || CATALOG;
+        savedInvoices = data.invoices || savedInvoices;
+        todos = data.todos || todos;
+
+        // Tulis ulang ke memori lokal sebagai backup cadangan
+        localStorage.setItem('nvmee_users', JSON.stringify(users));
+        localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG));
+        localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+        localStorage.setItem('nvmee_todos', JSON.stringify(todos));
+    } else {
+        // Jika belum ada data sama sekali di Cloud, kirim data default ke Cloud
+        saveToCloud();
+    }
+
+    // Jalankan aplikasi
+    if (isFirstLoad) {
+        isFirstLoad = false;
+        initAuth(); 
+    } else if (currentUser) {
+        // Jika bukan load pertama (artinya ada perubahan real-time dari tim lain), update layar yang sedang terbuka
+        updateDashboard();
+        if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList();
+        if(document.getElementById('view-katalog').classList.contains('active')) renderKatalog();
+        if(document.getElementById('view-todo').classList.contains('active')) renderCalendar();
+        if(document.getElementById('view-report').classList.contains('active')) renderReportList();
+    }
+}, (error) => {
+    console.error("Gagal menyambung ke Cloud:", error);
+    // Jika gagal terhubung ke internet/cloud, tetap nyalakan aplikasi menggunakan data offline (localStorage)
+    if(isFirstLoad) {
+        isFirstLoad = false;
+        initAuth();
+    }
+});
+
 </script>
 </body>
 </html>
