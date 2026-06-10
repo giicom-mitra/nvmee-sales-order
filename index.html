@@ -144,7 +144,7 @@
   /* ── INVOICE COMPONENT ── */
   .inv-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; box-shadow: var(--shadow); position: relative; transition: .2s ease;}
   .inv-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(26,58,92,0.12); }
-  .inv-card-head { display:flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 8px;}
+  .inv-card-head { display:flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 8px; gap: 10px;}
   .inv-cust { font-weight: 700; color: var(--text); font-size: 14px;}
   .inv-date { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace;}
   .inv-stats { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; font-weight: 600;}
@@ -248,44 +248,25 @@
 
   /* =========================================================
      📱 RESPONSIVE MOBILE (TAMPILAN HP) - FIT LAYAR
-     Sama sekali tidak mengubah logika, hanya CSS tambahan!
      ========================================================= */
   @media (max-width: 768px) {
-    /* 1. Kunci layar HP agar tidak bisa bergeser ke kiri/kanan (Fit Screen) */
     body, html { position: fixed; width: 100%; height: 100%; }
-    
     .app-wrapper { flex-direction: column; height: 100%; width: 100%; }
-    
-    /* 2. Menu Navigasi Bawah */
     .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; order: 2; padding: 10px; flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 100; -ms-overflow-style: none; scrollbar-width: none; }
     .sidebar::-webkit-scrollbar { display: none; }
-    
-    /* 3. Area Utama bisa di scroll ke bawah secara normal */
     .main-area { order: 1; flex: 1; width: 100%; overflow: hidden; height: auto; }
     .main-content { overflow-y: auto; overflow-x: hidden; padding: 10px; width: 100%; }
-    
     .sidebar-logo { display: none; }
-    
     .nav-list { flex-direction: row; padding: 0; margin: 0; align-items: center; gap: 8px; flex-wrap: nowrap; }
     .nav-item { white-space: nowrap; font-size: 12px; padding: 10px 16px; border-radius: 20px; }
     .logout-btn { margin: 0 0 0 10px; padding: 10px 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; white-space: nowrap; font-size: 12px; }
-
     .grid2 { grid-template-columns: 1fr !important; }
     .widget-grid { grid-template-columns: 1fr 1fr !important; }
-    
-    /* 4. MENCEGAH KEPOTONG/MELEBAR: Wadah tabel dipaksa sesuai lebar layar */
     .card, .invoice-block, .so-container { max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; }
-    
-    /* Isi tabelnya yang panjang ke kanan akan punya "scroll sendiri" di kotaknya */
     .invoice-body { overflow-x: auto; width: 100%; padding-bottom: 15px; -webkit-overflow-scrolling: touch; }
     #edit-inv-items { overflow-x: auto; width: 100%; padding-bottom: 15px; -webkit-overflow-scrolling: touch; }
-    
-    /* Menjaga susunan kolom tabel agar tetap rapi */
     .order-cols, .order-row-grid, .edit-row-grid { min-width: 650px; }
-    
-    /* 5. Pop-Up Modal Fit ke Layar */
     .modal-content { width: 95% !important; max-width: 100%; padding: 15px; margin: 10px auto; max-height: 85vh; }
-    
     .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .topbar { padding: 0 1rem; justify-content: space-between; gap: 10px; }
     .summary-grid { grid-template-columns: 1fr !important; gap: 6px; }
@@ -464,9 +445,21 @@
       </div>
 
       <div id="view-invoice" class="view-section">
-        <div class="page-header">
-          <div><h1>Status Invoice Pembayaran</h1><p>Otomatis terekap setiap Anda mendownload Excel / Generate SO.</p></div>
+        <div class="page-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+          <div style="display:flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 15px;">
+            <div><h1>Status Invoice Pembayaran</h1><p>Otomatis terekap setiap Anda mendownload Excel / Generate SO.</p></div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top: 5px; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow);">
+            <input type="text" id="inv-search" placeholder="🔍 Cari Nama / No. Invoice..." oninput="renderInvoiceList()" style="width: 220px; flex: 1; min-width: 200px; margin-bottom: 0;">
+            <div style="display:flex; gap: 15px; align-items:center;">
+               <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; cursor:pointer; color: var(--text);">
+                 <input type="checkbox" id="inv-select-all" onchange="toggleSelectAllInvoices(this.checked)" style="width:16px; height:16px; cursor:pointer;"> Pilih Semua
+               </label>
+               <button class="btn-primary" style="background-color: var(--red); box-shadow: none;" onclick="bulkDeleteInvoices()">🗑️ Hapus Terpilih</button>
+            </div>
+          </div>
         </div>
+        
         <div class="grid2" style="align-items: start;">
           <div class="card" style="border-color: var(--red-border); background: #FFFDFD;">
              <div class="card-title" style="color: var(--red); font-size: 13px;">❌ Invoice Belum Bayar</div>
@@ -1164,9 +1157,13 @@ function deleteKatalog(sku) {
 // 3. INVOICE MANAGEMENT & DASHBOARD LOGIC
 // ==========================================
 
+let selectedInvoices = new Set(); // SET PENYIMPAN INVOICE YANG DIPILIH
+
 function renderInvoiceList() {
   const unpaidEl = document.getElementById('inv-unpaid-list');
   const paidEl = document.getElementById('inv-paid-list');
+  const q = (document.getElementById('inv-search')?.value || '').toLowerCase();
+  
   unpaidEl.innerHTML = ''; paidEl.innerHTML = '';
 
   if(!savedInvoices.length) {
@@ -1178,6 +1175,11 @@ function renderInvoiceList() {
   let sorted = [...savedInvoices].sort((a,b) => b.timestamp - a.timestamp);
 
   sorted.forEach(inv => {
+    // FITUR PENCARIAN
+    let custName = (inv.customer || '').toLowerCase();
+    let invNum = (inv.invNum || '').toLowerCase();
+    if (q && !custName.includes(q) && !invNum.includes(q)) return;
+
     let d = new Date(inv.timestamp);
     let dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
     
@@ -1197,12 +1199,19 @@ function renderInvoiceList() {
       </div>
     `;
 
+    // CHECKBOX SELECT
+    let isChecked = selectedInvoices.has(inv.id) ? 'checked' : '';
+    let checkboxHTML = `<input type="checkbox" value="${inv.id}" ${isChecked} onchange="toggleInvoiceSelection(${inv.id}, this.checked)" style="width:16px; height:16px; cursor:pointer; margin-top:2px;" onclick="event.stopPropagation()">`;
+
     let html = `
       <div class="inv-card">
          <button class="inv-del" onclick="deleteSavedInvoice(${inv.id})">✖</button>
-         <div class="inv-card-head">
-            <div class="inv-cust">${inv.customer || 'Customer Unknown'}</div>
-            <div class="inv-date">Dibuat: ${dateStr}</div>
+         <div class="inv-card-head" style="display:flex; justify-content: flex-start; gap: 10px; align-items:flex-start;">
+            ${checkboxHTML}
+            <div style="flex:1;">
+               <div class="inv-cust">${inv.customer || 'Customer Unknown'}</div>
+               <div class="inv-date">Dibuat: ${dateStr} <span style="color:var(--text3); margin-left:5px; font-weight:bold;">${inv.invNum || ''}</span></div>
+            </div>
          </div>
          <div class="inv-stats">
             <span>Rp ${(inv.total || 0).toLocaleString('id-ID')}</span>
@@ -1219,6 +1228,45 @@ function renderInvoiceList() {
 
   if(!unpaidEl.innerHTML) unpaidEl.innerHTML = '<div style="color:var(--text3); font-size:12px; text-align:center; margin-top:10px;">Bersih.</div>';
   if(!paidEl.innerHTML) paidEl.innerHTML = '<div style="color:var(--text3); font-size:12px; text-align:center; margin-top:10px;">Belum ada yang lunas.</div>';
+}
+
+function toggleInvoiceSelection(id, isChecked) {
+  if (isChecked) selectedInvoices.add(id);
+  else selectedInvoices.delete(id);
+}
+
+function toggleSelectAllInvoices(isChecked) {
+  const q = (document.getElementById('inv-search')?.value || '').toLowerCase();
+  
+  savedInvoices.forEach(inv => {
+    let custName = (inv.customer || '').toLowerCase();
+    let invNum = (inv.invNum || '').toLowerCase();
+    
+    // Hanya select yang sedang tampil di hasil pencarian
+    if (q && !custName.includes(q) && !invNum.includes(q)) return; 
+    
+    if (isChecked) selectedInvoices.add(inv.id);
+    else selectedInvoices.delete(inv.id);
+  });
+  
+  renderInvoiceList();
+}
+
+function bulkDeleteInvoices() {
+  if (selectedInvoices.size === 0) return toast('Pilih minimal satu invoice untuk dihapus!', true);
+  
+  if (confirm(`Yakin ingin menghapus ${selectedInvoices.size} invoice terpilih secara permanen?`)) {
+    savedInvoices = savedInvoices.filter(i => !selectedInvoices.has(i.id));
+    selectedInvoices.clear();
+    document.getElementById('inv-select-all').checked = false;
+    
+    localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+    saveToCloud();
+    
+    renderInvoiceList();
+    updateDashboard();
+    toast('Invoice terpilih berhasil dihapus!');
+  }
 }
 
 function toggleInvoiceStatus(id) {
