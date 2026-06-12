@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 
 <style>
   :root {
@@ -87,6 +88,7 @@
   input, select, textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
   input:focus, select:focus, textarea:focus { border-color: var(--border2); box-shadow: 0 0 0 3px rgba(122,184,232,.18); }
   .btn-primary { background: #2E86C1; color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: .2s;}
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-outline { background: none; color: var(--text2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: .2s;}
 
   /* WIDGETS */
@@ -617,6 +619,7 @@
 // 0. LOADER & GOOGLE SHEETS API CONFIGURATION
 // ==========================================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGzbTApMcmjzLEXP5_ZO5GRmssMr6ws1W4lOhNzmNrdkXfpavUdk3NT05R2pLUJPM/exec";
+let isSyncing = false; // Mencegah tabrakan data (Race Condition)
 
 function showLoader(msg = "Menyinkronkan data...") {
     let loader = document.getElementById('global-loader');
@@ -633,29 +636,51 @@ function hideLoader() {
 }
 
 // ==========================================
-// 0.5 DATA CLOUD (TARGET & OMZET EXTRA)
+// 0.5 DATA CLOUD (TARGET, OMZET EXTRA & KOMPRESI)
 // ==========================================
 let targets = JSON.parse(localStorage.getItem('nvmee_targets')) || { yearly: {}, monthly: {} };
 let monthlyExtras = JSON.parse(localStorage.getItem('nvmee_monthly_extras')) || {};
 
 function saveToCloud() {
+    if (isSyncing) return Promise.resolve(); // Cegah klik ganda
+    isSyncing = true;
+    let btn = document.getElementById('btn-sync');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+
+    // SIASAT CERDAS 1: Titipkan monthlyExtras ke dalam targets
+    let safeTargets = JSON.parse(JSON.stringify(targets));
+    safeTargets._embeddedExtras = monthlyExtras;
+
+    // SIASAT CERDAS 2: KOMPRESI DATA INVOICE (Mencegah Limit 50.000 Karakter Google Sheets)
+    // Ubah array object menjadi string terkompresi berukuran super kecil!
+    let compressedInvoices = LZString.compressToBase64(JSON.stringify(savedInvoices));
+
     const payload = {
         users: users,
         catalog: CATALOG,
-        invoices: savedInvoices,
+        invoices: compressedInvoices, // Kirim versi kompresi ke server
         todos: todos,
         notes: notesData,
-        targets: targets,            
-        monthlyExtras: monthlyExtras,
+        targets: safeTargets,
         lastUpdated: Date.now()
     };
+
     return fetch(SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
     })
     .then(res => res.json())
-    .catch(err => console.error("Error saving to sheet:", err));
+    .then(data => {
+        isSyncing = false;
+        if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        return data;
+    })
+    .catch(err => {
+        console.error("Error saving to sheet:", err);
+        isSyncing = false;
+        if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    });
 }
 
 function loadFromCloud(isInitial = false) {
@@ -668,11 +693,35 @@ function loadFromCloud(isInitial = false) {
         if(data && Object.keys(data).length > 0) {
             users = data.users || users;
             CATALOG = data.catalog || CATALOG;
-            savedInvoices = data.invoices || savedInvoices;
             todos = data.todos || todos;
             notesData = data.notes || notesData;
-            targets = data.targets || targets;
-            monthlyExtras = data.monthlyExtras || monthlyExtras;
+            
+            // PROSES DEKOMPRESI (Ekstrak kembali data Invoice dari Cloud)
+            if (data.invoices) {
+                if (typeof data.invoices === 'string') {
+                    // Jika data berupa string terkompresi
+                    try {
+                        let decompressed = LZString.decompressFromBase64(data.invoices);
+                        if (decompressed) {
+                            savedInvoices = JSON.parse(decompressed);
+                        }
+                    } catch(e) {
+                        console.error("Gagal dekompresi data invoice dari server", e);
+                    }
+                } else {
+                    // Fallback jika format lama (masih array normal)
+                    savedInvoices = data.invoices;
+                }
+            }
+
+            // Ekstrak kembali data omzet ekstra yang dititipkan di dalam targets
+            if (data.targets) {
+                if (data.targets._embeddedExtras) {
+                    monthlyExtras = data.targets._embeddedExtras;
+                    delete data.targets._embeddedExtras;
+                }
+                targets = data.targets;
+            }
 
             localStorage.setItem('nvmee_users', JSON.stringify(users));
             localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG));
@@ -685,7 +734,7 @@ function loadFromCloud(isInitial = false) {
         
         if (isInitial) {
             isFirstLoad = false; initAuth(); hideLoader();
-        } else if (currentUser) {
+        } else {
             updateDashboard();
             if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList();
             if(document.getElementById('view-katalog').classList.contains('active')) renderKatalog();
@@ -693,6 +742,7 @@ function loadFromCloud(isInitial = false) {
             if(document.getElementById('view-notes').classList.contains('active')) renderNotesList();
             if(document.getElementById('view-report').classList.contains('active')) renderReportList();
             if(document.getElementById('view-target').classList.contains('active')) renderTargetList();
+            
             toast('Data berhasil disinkronkan dari Cloud! ✅');
             let btn = document.getElementById('btn-sync');
             if(btn) btn.textContent = '🔄 Sinkron Data';
@@ -1047,7 +1097,6 @@ function updateDashboard() {
       `;
   } else document.getElementById('dash-target-year-content').innerHTML = '<div style="font-size:11px; color:var(--text3);">Belum diatur. Ke menu Target.</div>';
 
-
   let todayStr = getFormattedDate(now.getFullYear(), now.getMonth(), now.getDate());
   let pendingTodos = todos.filter(t => !t.done).sort((a,b) => { let cmp = a.date.localeCompare(b.date); if(cmp !== 0) return cmp; return (a.time||'23:59').localeCompare(b.time||'23:59'); }).slice(0, 5); 
   document.getElementById('d-todo-today').innerHTML = pendingTodos.length ? pendingTodos.map(t => {
@@ -1374,8 +1423,10 @@ function saveEditedInvoice() {
     }
 
     localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
-    saveToCloud(); closeInvEditModal(); toast('Invoice diperbarui!'); 
-    renderInvoiceList(); updateDashboard(); 
+    saveToCloud().then(() => {
+        closeInvEditModal(); toast('Invoice diperbarui!'); 
+        renderInvoiceList(); updateDashboard(); 
+    });
 }
 
 function searchCalendar() { let q=document.getElementById('cal-search').value.toLowerCase().trim(), b=document.getElementById('cal-search-results'); if(!q) { b.style.display='none'; return; } let m=todos.filter(t=>t.title.toLowerCase().includes(q)||(t.notes&&t.notes.toLowerCase().includes(q))); if(m.length===0) b.innerHTML='<div style="padding:10px;text-align:center;">Tidak ditemukan</div>'; else b.innerHTML=m.map(t=>{ let d=new Date(t.date), dS=`${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; return `<div style="padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="document.getElementById('cal-search').value=''; document.getElementById('cal-search-results').style.display='none'; openEditTodo('${t.id}')"><div style="font-weight:700;">${t.title}</div><div style="font-size:10px;color:var(--text3);">📅 ${dS}</div></div>`; }).join(''); b.style.display='block'; }
@@ -1418,12 +1469,112 @@ function extractQty(l) { let m=l.match(/\((\d+)\s*(?:pc|pcs|buah|unit)?\)/i); if
 function findBestProduct(lL) { let bM=null, bS=0, ws=lL.replace(/[^\w\s]/gi,'').split(/\s+/).filter(w=>w.length>1); CATALOG.forEach(p=>{ let s=0, mc=0; if(lL.includes(p.sku.toLowerCase())){ s+=50; mc+=2; } if(p.keys){ p.keys.forEach(k=>{ let kl=k.toLowerCase(); if(lL.includes(kl)){ s+=(kl.length>5?12:6); mc++; } }); } ws.forEach(w=>{ if(p.name.toLowerCase().includes(w)){ s+=3; mc++; } }); let hC=false; Object.keys(COLOR_MAP).forEach(cw=>{ if(lL.includes(cw)&&p.sku.endsWith('-'+COLOR_MAP[cw])){ s+=15; mc+=2; hC=true; } }); if(mc>=(hC?2:1)) s+=20; if(s>bS&&s>=10){ bS=s; bM=p; } }); return bM; }
 function parseWA() { let t=document.getElementById('wa-input').value.trim(); if(!t) return toast('Paste teks dulu!',true); let ls=t.split('\n').map(l=>l.replace(/^[\s~+\-*\u2022\u25aa\u{1F525}\u{1F4E6}]+/u,'').trim()).filter(l=>l.length>1), res=[], cP=null; for(let i=0;i<ls.length;i++){ let l=ls[i], lL=l.toLowerCase(); if(shouldIgnoreLine(l)) continue; let q=extractQty(l), isC=false; if(cP){ let hC=Object.keys(COLOR_MAP).some(w=>lL.includes(w)), hP=CATALOG.some(p=>p.sku!==cP&&p.keys&&p.keys.some(k=>k.length>4&&lL.includes(k.toLowerCase()))); if(hC&&!hP&&l.length<35) isC=true; } if(isC&&q>0){ let b=cP.replace(/-[^-]+$/,''), f=null; Object.keys(COLOR_MAP).forEach(w=>{ if(f)return; if(lL.includes(w)){ let c=CATALOG.find(p=>p.sku.startsWith(b)&&p.sku.endsWith('-'+COLOR_MAP[w])); if(c) f=c; } }); if(f){ res.push({prod:f,qty:q}); continue; } } let mM=null, hCL=Object.keys(COLOR_MAP).some(w=>lL.includes(w)); if(!hCL){ MULTI_COLOR.forEach(mc=>{ if(mM)return; if(mc.keys.some(k=>lL.includes(k.toLowerCase()))) mM=mc; }); } if(mM&&q>0){ let i0=invoices[invoices.length-1]; splitByVariants(mM.variants,q,i0?i0.tier:null).forEach(s=>res.push(s)); cP=mM.variants[0].sku; continue; } let p=findBestProduct(lL); if(p&&q>0){ res.push({prod:p,qty:q}); cP=p.sku; } else if(p) cP=p.sku; else { let pr=null; CATALOG.forEach(x=>{ if(pr)return; let sc=0; if(x.keys) x.keys.forEach(k=>{ if(k.length>3&&lL.includes(k.toLowerCase())) sc+=5; }); if(sc>0) pr=x; }); if(pr) cP=pr.sku; } } if(!res.length){ document.getElementById('wa-result').innerHTML='<span style="color:#C0392B">❌ Gagal mendeteksi.</span>'; return; } let i=invoices[invoices.length-1]; if(!i){ addInvoice(false); i=invoices[0]; } i.items=i.items.filter(x=>x.sku!==''); res.forEach(r=>{ i.items.push({sku:r.prod.sku,qty:r.qty,price:getPrice(r.prod,i.tier),ref:r.prod,manual:false}); }); renderAll(); document.getElementById('wa-input').value=''; document.getElementById('wa-result').innerHTML=`<span style="color:#2E7D32">✓ ${res.length} item terekstrak!</span>`; setTimeout(()=>document.getElementById('wa-result').innerHTML='',3000); }
 function getVal(id) { let e=document.getElementById(id); return e?e.value:''; }
-function generateExcel(silent) { let n=getVal('cust-name'), c=getVal('cust-code'); if(!n||!c) return toast('Isi Nama & Code!',true); if(!invoices.length) return toast('Tambah invoice!',true); let p=getVal('cust-phone'), a=getVal('cust-addr'), ci=getVal('cust-city'), pr=getVal('cust-prov'), e=getVal('cust-eksp'), np=getVal('cust-npwp'), nn=getVal('cust-npwp-name'), rc=getVal('cust-name'), hs=['Warehouse','Marketplace','Store','Customer Code','Invoice','Ekspedisi','Resi / AWB','Waktu Pembayaran','Batas Waktu Pembayaran','Nama Penerima','Nama Akun','SKU','QTY','Satuan Harga','Voucher','Courrier','Pajak','total Berat Barang','Catatan dari Pembeli','Alamat Penerima','No. Telp','Kota','Provinsi','No NPWP','Nama NPWP','Alamat NPWP','Auto'], rs=[hs], aT=0, aQ=0, aI=[]; invoices.forEach(i=>{ let iC=(i.diffCustomer&&i.custCode)?i.custCode:c, iN=(i.diffCustomer&&i.custName)?i.custName:n, iR=(i.diffCustomer&&i.custReceiver)?i.custReceiver:(rc||n), iP=(i.diffCustomer&&i.custPhone)?i.custPhone:p, iA=(i.diffCustomer&&i.custAddr)?i.custAddr:a, iCi=(i.diffCustomer&&i.custCity)?i.custCity:ci, iPr=(i.diffCustomer&&i.custProv)?i.custProv:pr, iE=(i.diffCustomer&&i.custEksp)?i.custEksp:e, iNp=(i.diffCustomer&&i.custNpwp)?i.custNpwp:np, iNn=(i.diffCustomer&&i.custNpwpName)?i.custNpwpName:nn; i.items.forEach(it=>{ if(!it.sku)return; aT+=(+it.qty||0)*(+it.price||0); aQ+=(+it.qty||0); aI.push({sku:it.sku,qty:it.qty,price:it.price||0}); let fN=(i.numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+i.num; rs.push(['GII-BOX','Non Marketplace','GRO-NVM',iC,fN,iE,fN,'','',iR,iN,it.sku,+it.qty||1,+it.price||0,0,'','P','500 gr','',iA,iP,iCi,iPr,iNp,iNn,'','']); }); }); if(rs.length<=1) return toast('Tidak ada produk!',true); let sR=getVal('cust-region'), gN=(invoices[0].numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+invoices[0].num; savedInvoices.push({id:Date.now(),invNum:gN,customer:n,total:aT,totalQty:aQ,items:aI,timestamp:Date.now(),paid:false,paidDate:null,region:sR}); localStorage.setItem('nvmee_saved_invoices',JSON.stringify(savedInvoices)); saveToCloud(); updateDashboard(); if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); if(document.getElementById('view-report').classList.contains('active')) renderReportList(); let ws=XLSX.utils.aoa_to_sheet(rs), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Worksheet'); let fn=`SO_${n.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`; XLSX.writeFile(wb,fn); if(!silent) toast('✓ File SO didownload & masuk Dashboard!'); return true; }
+function generateExcel(silent) { let n=getVal('cust-name'), c=getVal('cust-code'); if(!n||!c) return toast('Isi Nama & Code!',true); if(!invoices.length) return toast('Tambah invoice!',true); let p=getVal('cust-phone'), a=getVal('cust-addr'), ci=getVal('cust-city'), pr=getVal('cust-prov'), e=getVal('cust-eksp'), np=getVal('cust-npwp'), nn=getVal('cust-npwp-name'), rc=getVal('cust-name'), hs=['Warehouse','Marketplace','Store','Customer Code','Invoice','Ekspedisi','Resi / AWB','Waktu Pembayaran','Batas Waktu Pembayaran','Nama Penerima','Nama Akun','SKU','QTY','Satuan Harga','Voucher','Courrier','Pajak','total Berat Barang','Catatan dari Pembeli','Alamat Penerima','No. Telp','Kota','Provinsi','No NPWP','Nama NPWP','Alamat NPWP','Auto'], rs=[hs], aT=0, aQ=0, aI=[]; invoices.forEach(i=>{ let iC=(i.diffCustomer&&i.custCode)?i.custCode:c, iN=(i.diffCustomer&&i.custName)?i.custName:n, iR=(i.diffCustomer&&i.custReceiver)?i.custReceiver:(rc||n), iP=(i.diffCustomer&&i.custPhone)?i.custPhone:p, iA=(i.diffCustomer&&i.custAddr)?i.custAddr:a, iCi=(i.diffCustomer&&i.custCity)?i.custCity:ci, iPr=(i.diffCustomer&&i.custProv)?i.custProv:pr, iE=(i.diffCustomer&&i.custEksp)?i.custEksp:e, iNp=(i.diffCustomer&&i.custNpwp)?i.custNpwp:np, iNn=(i.diffCustomer&&i.custNpwpName)?i.custNpwpName:nn; i.items.forEach(it=>{ if(!it.sku)return; aT+=(+it.qty||0)*(+it.price||0); aQ+=(+it.qty||0); aI.push({sku:it.sku,qty:it.qty,price:it.price||0}); let fN=(i.numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+i.num; rs.push(['GII-BOX','Non Marketplace','GRO-NVM',iC,fN,iE,fN,'','',iR,iN,it.sku,+it.qty||1,+it.price||0,0,'','P','500 gr','',iA,iP,iCi,iPr,iNp,iNn,'','']); }); }); if(rs.length<=1) return toast('Tidak ada produk!',true); let sR=getVal('cust-region'), gN=(invoices[0].numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+invoices[0].num; savedInvoices.push({id:Date.now(),invNum:gN,customer:n,total:aT,totalQty:aQ,items:aI,timestamp:Date.now(),paid:false,paidDate:null,region:sR}); localStorage.setItem('nvmee_saved_invoices',JSON.stringify(savedInvoices)); saveToCloud().then(()=>{ updateDashboard(); if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); if(document.getElementById('view-report').classList.contains('active')) renderReportList(); }); let ws=XLSX.utils.aoa_to_sheet(rs), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Worksheet'); let fn=`SO_${n.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`; XLSX.writeFile(wb,fn); if(!silent) toast('✓ File SO didownload & masuk Dashboard!'); return true; }
 
-function handleExcelImport(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { const data = new Uint8Array(e.target.result); const workbook = XLSX.read(data, {type: 'array'}); const firstSheetName = workbook.SheetNames[0]; const worksheet = workbook.Sheets[firstSheetName]; const json = XLSX.utils.sheet_to_json(worksheet, {raw: false}); processExcelData(json); event.target.value = ''; }; reader.readAsArrayBuffer(file); }
-function processExcelData(data) { if (!data || data.length === 0) return toast("File kosong atau tidak valid", true); let grouped = {}; let jawaKeywords = ["jawa", "jakarta", "dki", "banten", "jabar", "jateng", "jatim", "diy", "yogyakarta", "jogja", "bandung", "surabaya", "semarang", "malang", "bogor", "bekasi", "depok", "tangerang", "cirebon", "surakarta", "solo", "kediri", "madiun", "purwokerto", "tegal"]; const getField = (row, fieldNames) => { let keys = Object.keys(row); for(let fn of fieldNames) { let found = keys.find(k => k.toLowerCase().includes(fn.toLowerCase())); if(found) return row[found]; } return undefined; }; for(let i = 0; i < data.length; i++) { let row = data[i]; let rawInvNo = getField(row, ["invoice", "no invoice"]); if (!rawInvNo) continue; let invNo = String(rawInvNo).replace(/^'/, '').trim(); let dateStr = getField(row, ["created at", "date", "tanggal"]) || ""; let sku = String(getField(row, ["sku"]) || "").trim(); let qty = parseInt(getField(row, ["qty", "quantity"])) || 0; let price = parseFloat(String(getField(row, ["price", "satuan harga", "sale price"])).replace(/,/g, '')) || 0; let grandTotal = parseFloat(String(getField(row, ["grand total", "total sales", "total invoice"])).replace(/,/g, '')) || 0; let cust = String(getField(row, ["customer", "nama penerima", "account name"]) || "Unknown").trim(); let addr = String(getField(row, ["address", "alamat"]) || "").toLowerCase(); if(!sku || qty === 0) continue; if (!grouped[invNo]) { let region = "luar_jawa"; if (jawaKeywords.some(kw => addr.includes(kw))) { region = "jawa"; } let ts = Date.now() + i; if (dateStr) { let ds = String(dateStr).split(" ")[0]; if (ds.includes("-")) { let parts = ds.split("-"); if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } } else if (ds.includes("/")) { let parts = ds.split("/"); if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } } else { let parsed = Date.parse(dateStr); if(!isNaN(parsed)) ts = parsed; } } grouped[invNo] = { id: Date.now() + Math.floor(Math.random()*1000) + i, invNum: invNo, customer: cust, region: region, timestamp: ts, paid: false, paidDate: null, items: [], total: grandTotal, totalQty: 0 }; } grouped[invNo].items.push({ sku: sku, qty: qty, price: price }); grouped[invNo].totalQty += qty; if (grandTotal === 0) { grouped[invNo].total += (qty * price); } } let newInvoicesCount = 0; Object.values(grouped).forEach(inv => { let exists = savedInvoices.find(s => s.invNum === inv.invNum); if(!exists) { savedInvoices.push(inv); newInvoicesCount++; } }); localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); saveToCloud(); updateDashboard(); if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); if (document.getElementById('view-report').classList.contains('active')) renderReportList(); if(newInvoicesCount > 0) { toast(`Berhasil import ${newInvoicesCount} invoice baru! ✅`); } else { toast(`Import selesai. (Semua data sudah ada / Duplikat)`); } }
+// ==========================================
+// IMPORT EXCEL DENGAN SISTEM ANTREAN
+// ==========================================
+function handleExcelImport(event) { 
+    if (isSyncing) return toast('Sedang menyinkronkan data, harap tunggu sebentar.', true);
+    const file = event.target.files[0]; 
+    if (!file) return; 
+    const reader = new FileReader(); 
+    reader.onload = function(e) { 
+        const data = new Uint8Array(e.target.result); 
+        const workbook = XLSX.read(data, {type: 'array'}); 
+        const firstSheetName = workbook.SheetNames[0]; 
+        const worksheet = workbook.Sheets[firstSheetName]; 
+        const json = XLSX.utils.sheet_to_json(worksheet, {raw: false}); 
+        processExcelData(json); 
+        event.target.value = ''; 
+    }; 
+    reader.readAsArrayBuffer(file); 
+}
+
+function processExcelData(data) { 
+    if (!data || data.length === 0) return toast("File kosong atau tidak valid", true); 
+    
+    // Tampilkan loading antrean
+    showLoader("Mengompresi & Menyimpan ke Cloud...");
+    
+    let grouped = {}; 
+    let jawaKeywords = ["jawa", "jakarta", "dki", "banten", "jabar", "jateng", "jatim", "diy", "yogyakarta", "jogja", "bandung", "surabaya", "semarang", "malang", "bogor", "bekasi", "depok", "tangerang", "cirebon", "surakarta", "solo", "kediri", "madiun", "purwokerto", "tegal"]; 
+    
+    const getField = (row, fieldNames) => { 
+        let keys = Object.keys(row); 
+        for(let fn of fieldNames) { 
+            let found = keys.find(k => k.toLowerCase().includes(fn.toLowerCase())); 
+            if(found) return row[found]; 
+        } 
+        return undefined; 
+    }; 
+    
+    for(let i = 0; i < data.length; i++) { 
+        let row = data[i]; 
+        let rawInvNo = getField(row, ["invoice", "no invoice"]); 
+        if (!rawInvNo) continue; 
+        let invNo = String(rawInvNo).replace(/^'/, '').trim(); 
+        let dateStr = getField(row, ["created at", "date", "tanggal"]) || ""; 
+        let sku = String(getField(row, ["sku"]) || "").trim(); 
+        let qty = parseInt(getField(row, ["qty", "quantity"])) || 0; 
+        let price = parseFloat(String(getField(row, ["price", "satuan harga", "sale price"])).replace(/,/g, '')) || 0; 
+        let grandTotal = parseFloat(String(getField(row, ["grand total", "total sales", "total invoice"])).replace(/,/g, '')) || 0; 
+        let cust = String(getField(row, ["customer", "nama penerima", "account name"]) || "Unknown").trim(); 
+        let addr = String(getField(row, ["address", "alamat"]) || "").toLowerCase(); 
+        
+        if(!sku || qty === 0) continue; 
+        
+        if (!grouped[invNo]) { 
+            let region = "luar_jawa"; 
+            if (jawaKeywords.some(kw => addr.includes(kw))) { region = "jawa"; } 
+            let ts = Date.now() + i; 
+            if (dateStr) { 
+                let ds = String(dateStr).split(" ")[0]; 
+                if (ds.includes("-")) { 
+                    let parts = ds.split("-"); 
+                    if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } 
+                    else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } 
+                } else if (ds.includes("/")) { 
+                    let parts = ds.split("/"); 
+                    if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } 
+                    else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } 
+                } else { 
+                    let parsed = Date.parse(dateStr); 
+                    if(!isNaN(parsed)) ts = parsed; 
+                } 
+            } 
+            grouped[invNo] = { id: Date.now() + Math.floor(Math.random()*1000) + i, invNum: invNo, customer: cust, region: region, timestamp: ts, paid: false, paidDate: null, items: [], total: grandTotal, totalQty: 0 }; 
+        } 
+        grouped[invNo].items.push({ sku: sku, qty: qty, price: price }); 
+        grouped[invNo].totalQty += qty; 
+        if (grandTotal === 0) { grouped[invNo].total += (qty * price); } 
+    } 
+    
+    let newInvoicesCount = 0; 
+    Object.values(grouped).forEach(inv => { 
+        let exists = savedInvoices.find(s => s.invNum === inv.invNum); 
+        if(!exists) { savedInvoices.push(inv); newInvoicesCount++; } 
+    }); 
+    
+    localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
+    
+    // Panggil cloud setelah memproses data
+    saveToCloud().then(() => {
+        updateDashboard(); 
+        if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); 
+        if (document.getElementById('view-report').classList.contains('active')) renderReportList(); 
+        
+        hideLoader();
+        if(newInvoicesCount > 0) { 
+            toast(`Berhasil import ${newInvoicesCount} invoice baru! ✅`); 
+        } else { 
+            toast(`Import selesai. (Semua data sudah ada / Duplikat)`); 
+        } 
+    });
+}
 
 function handleHistoricalExcelImport(event) { 
+    if (isSyncing) return toast('Sedang menyinkronkan data, harap tunggu sebentar.', true);
     const file = event.target.files[0]; 
     if (!file) return; 
     const reader = new FileReader(); 
@@ -1445,8 +1596,9 @@ function processHistoricalExcelData(data) {
     let targetKey = window.currentReportMonthKey;
     if (!targetKey) return toast("Buka salah satu bulan terlebih dahulu!", true);
 
+    showLoader("Mengompresi & Menyimpan ke Cloud...");
+
     let [tYear, tMonth] = targetKey.split('-');
-    
     let forcedTimestamp = new Date(parseInt(tYear), parseInt(tMonth) - 1, 15, 12, 0, 0).getTime();
 
     let grouped = {}; 
@@ -1499,19 +1651,21 @@ function processHistoricalExcelData(data) {
     }); 
     
     localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
-    saveToCloud(); 
-    updateDashboard(); 
     
-    if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); 
-    if (document.getElementById('view-report').classList.contains('active')) renderReportList(); 
-    
-    showReportDetail(targetKey);
-    
-    if(newInvoicesCount > 0) { 
-        toast(`Berhasil import ${newInvoicesCount} invoice langsung ke bulan ini (Lunas)! ✅`); 
-    } else { 
-        toast(`Import selesai. (Semua data sudah ada / Duplikat)`); 
-    } 
+    saveToCloud().then(() => {
+        updateDashboard(); 
+        if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); 
+        if (document.getElementById('view-report').classList.contains('active')) renderReportList(); 
+        
+        showReportDetail(targetKey);
+        
+        hideLoader();
+        if(newInvoicesCount > 0) { 
+            toast(`Berhasil import ${newInvoicesCount} invoice langsung ke bulan ini (Lunas)! ✅`); 
+        } else { 
+            toast(`Import selesai. (Semua data sudah ada / Duplikat)`); 
+        }
+    });
 }
 
 let isFirstLoad = true; loadFromCloud(true);
