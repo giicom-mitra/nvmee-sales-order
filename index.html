@@ -290,8 +290,9 @@
 .katalog-table tbody tr:hover td { background: var(--accent-bg); }
 
 @media (max-width: 600px) {
-  .katalog-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .katalog-table-wrapper { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 65vh; }
   .katalog-table { min-width: 650px; }
+  .katalog-table thead { position: sticky; top: 0; }
   .katalog-table th, .katalog-table td { padding: 8px 10px; font-size: 11px; }
 }
 </style>
