@@ -1,0 +1,2262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NVMEE Mitra & Sales Order Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+
+<style>
+  :root {
+    --bg: #FFF0F5; --surface: #FFFFFF; --surface2: #FEFAD0;
+    --border: #E8D060; --border2: #7AB8E8;
+    --text: #1A3A5C; --text2: #2E6090; --text3: #7AAAC8;
+    --accent: #C0306A; --accent-light: #FF85B0; --accent-bg: #FFF0F5;
+    
+    --silver: #5080A0; --silver-bg: #F0F4FF; --silver-border: #A0B8D8;
+    --gold: #C8900A; --gold-bg: #FEFAD0; --gold-border: #E8D060;
+    --platinum: #8040A0; --platinum-bg: #F0D8F8; --platinum-border: #C080E0;
+    
+    --green: #2E7D32; --green-bg: #E8F5E9; --green-border: #81C784;
+    --red: #C0392B; --red-bg: #FDECEA; --red-border: #FCA5A5;
+    --orange: #D97706; --orange-bg: #FEF3C7; --orange-border: #FBBF24;
+    
+    --radius: 10px; --radius-sm: 6px;
+    --shadow: 0 2px 8px rgba(26,58,92,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text); background: var(--bg); font-size: 13px; line-height: 1.5; margin: 0; overflow: hidden; }
+
+  /* ── LOADING SCREEN ── */
+  #global-loader { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.4s ease, visibility 0.4s ease; }
+  .typewriter-box { display: inline-block; }
+  .typewriter-text { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 800; color: var(--accent); overflow: hidden; white-space: nowrap; border-right: 3px solid var(--accent); width: 0; animation: typing 1.5s steps(11, end) infinite alternate, blink .75s step-end infinite; }
+  @keyframes typing { from { width: 0 } to { width: 11ch } }
+  @keyframes blink { from, to { border-color: transparent } 50% { border-color: var(--accent) } }
+  .loading-subtext { font-size: 12px; color: var(--text3); margin-top: 15px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ── LAYOUT APP ── */
+  .app-wrapper { display: none; height: 100vh; width: 100vw; } 
+  
+  /* ── LAYOUT LOGIN ── */
+  #auth-screen { position: fixed; top:0; left:0; width:100vw; height:100vh; background: var(--bg); display: flex; align-items:center; justify-content:center; z-index: 2000; }
+  .auth-card { background: #fff; width: 360px; max-width: 90%; border-radius: var(--radius); padding: 30px; box-shadow: 0 10px 40px rgba(192,48,106,0.15); text-align: center; border: 1px solid var(--border); }
+  .auth-card h2 { margin-bottom: 5px; color: var(--text); font-weight: 800; font-size: 22px; }
+  .auth-card p { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+  .auth-input { width: 100%; padding: 12px 14px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; transition: .2s; background: var(--surface); }
+  .auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,133,176,0.2); }
+  .auth-btn { width: 100%; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; margin-bottom: 12px; font-family: inherit; transition: .2s; font-size: 14px; }
+  .auth-btn:hover { background: #A02050; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(192,48,106,0.2); }
+  .auth-switch { font-size: 12px; color: var(--text2); cursor: pointer; margin-top: 15px; }
+  .auth-switch span { color: var(--accent); font-weight: 800; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; background: var(--text); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; box-shadow: 4px 0 15px rgba(0,0,0,0.05);}
+  .sidebar-logo { padding: 18px 15px; font-size: 16px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 10px; }
+  .sidebar-logo span { background: var(--accent); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+  .nav-list { list-style: none; padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+  .nav-item { padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 500; transition: all .2s; display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.7); }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .nav-item.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(192,48,106,.3); }
+  .logout-btn { margin-top: auto; margin-bottom: 15px; margin-left: 10px; margin-right: 10px; padding: 10px 15px; cursor: pointer; color: #FCA5A5; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; align-items: center; border-radius: 6px; transition: .2s; }
+  .logout-btn:hover { color: #fff; background: rgba(192,57,43,0.8); }
+
+  /* MAIN AREA */
+  .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--border); height: 52px; display: flex; align-items: center; justify-content: flex-end; padding: 0 1.5rem; z-index: 5; gap: 15px; }
+  .topbar-right { font-size: 12px; color: var(--text2); font-weight: 600; font-family: 'DM Mono', monospace; }
+  .user-badge { background: var(--accent-bg); border: 1px solid var(--accent-light); color: var(--accent); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 800; display:flex; align-items:center; gap:6px;}
+  .main-content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+  .view-section { display: none; animation: fadeIn .3s ease; max-width: 1200px; margin: 0 auto; padding-bottom: 3rem; }
+  .view-section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .page-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 15px;}
+  .page-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.5px;}
+  .page-header p { color: var(--text2); font-size: 13px; }
+
+  /* COMPONENT */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.2rem; box-shadow: var(--shadow); transition: box-shadow .2s ease; }
+  .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; border-bottom: 1px dashed var(--border); padding-bottom: 6px;}
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #report-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;}
+  .field label { font-size: 12px; color: var(--text2); font-weight: 600; }
+  input, select, textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--border2); box-shadow: 0 0 0 3px rgba(122,184,232,.18); }
+  .btn-primary { background: #2E86C1; color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: .2s;}
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-outline { background: none; color: var(--text2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: .2s;}
+
+  /* WIDGETS */
+  .widget-grid { display: grid; gap: 12px; margin-bottom: 15px; }
+  .widget { background: #fff; border-radius: var(--radius); padding: 15px; border: 1px solid var(--border); box-shadow: var(--shadow); position: relative; overflow: hidden;}
+  .widget::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .w-blue::before { background: #2E86C1; } .w-green::before { background: var(--green); } .w-orange::before { background: var(--orange); } .w-red::before { background: var(--red); } .w-purple::before { background: var(--platinum); }
+  .widget-title { font-size: 11px; color: var(--text2); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; }
+  .widget-val { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'DM Mono', monospace; letter-spacing: -0.5px;}
+  
+  .dash-list { list-style: none; }
+  .dash-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--surface2); font-size: 12px; }
+  .badge { padding: 3px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; border: 1px solid var(--border); background: var(--surface2);}
+
+  .dash-todo-item { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; gap:4px; padding: 10px !important; cursor:pointer; border-radius:6px; transition:all .2s ease; border-bottom: 1px solid var(--surface2); }
+  .dash-todo-item:hover { background: var(--accent-bg); border-left: 3px solid var(--accent-light); padding-left: 12px !important; }
+
+  /* ── PROGRESS BAR (UNTUK TARGET) ── */
+  .progress-bg { width: 100%; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin-top: 6px; position: relative; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.5s ease; }
+  .progress-text { font-size: 10px; font-weight: 700; margin-top: 4px; display: flex; justify-content: space-between; color: var(--text3); }
+
+  /* ── GRAFIK MINGGUAN ── */
+  .weekly-chart { display: flex; justify-content: space-around; align-items: flex-end; height: 180px; padding-top: 25px; border-bottom: 2px solid var(--surface2); margin-top: 10px;}
+  .chart-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; gap: 8px;}
+  .bars-wrap { display: flex; gap: 6px; align-items: flex-end; height: 100%; width: 100%; justify-content: center; }
+  .bar { width: 35%; max-width: 35px; border-radius: 4px 4px 0 0; position: relative; transition: height 0.4s ease; min-height: 2px; }
+  .bar.paid { background: var(--green); } .bar.unpaid { background: var(--red); }
+  .bar-label { position: absolute; top: -18px; width: 100%; text-align: center; font-size: 9px; font-weight: 800;}
+  .chart-label { font-size: 11px; font-weight: 700; color: var(--text3); }
+
+  /* ── INVOICE COMPONENT ── */
+  .inv-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; box-shadow: var(--shadow); position: relative; transition: .2s ease;}
+  .inv-card-head { display:flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 8px; gap: 10px;}
+  .inv-cust { font-weight: 700; color: var(--text); font-size: 14px; text-decoration: none;}
+  .inv-date { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace;}
+  .inv-stats { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; font-weight: 600;}
+  .inv-btn { width: 100%; padding: 8px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; transition: .2s; font-family: inherit;}
+  .inv-btn.pay { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .inv-btn.unpay { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+  .inv-del { position: absolute; top: -8px; right: -8px; background: #fff; color: var(--red); border: 1px solid var(--red-border); border-radius: 50%; width: 22px; height: 22px; display: flex; justify-content: center; align-items: center; font-size: 10px; cursor: pointer; display:none;}
+  .inv-card:hover .inv-del { display:flex; }
+  
+  /* ── INVOICE FOLDER (ARSIP) ── */
+  .folder-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; box-shadow: var(--shadow); overflow: hidden; }
+  .folder-header { padding: 12px 15px; background: var(--surface2); cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; font-size: 13px;}
+  .folder-header:hover { background: #FEF0B0; }
+  .folder-body { padding: 15px; display: none; background: #fafafa; }
+  .folder-body.active { display: block; border-top: 1px dashed var(--border); }
+  .folder-icon { font-size: 16px; transition: transform 0.3s ease; }
+  .folder-card.open .folder-icon { transform: rotate(90deg); }
+
+  /* ── KATALOG GRID CARD ── */
+  .category-divider { background: var(--surface2); color: var(--text); padding: 8px 14px; font-weight: 800; font-size: 12px; letter-spacing: 0.05em; margin: 15px 0 12px 0; border-radius: 6px; text-transform: uppercase; border-left: 4px solid var(--border);}
+  .katalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .katalog-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); position: relative; display: flex; flex-direction: column; transition: .2s ease; }
+  .katalog-card-header { margin-bottom: 10px; padding-right: 24px; }
+  .katalog-card-title { font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 2px; text-transform: uppercase; }
+  .katalog-card-sku { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); }
+  .katalog-card-retail { background: #FFFDF0; border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .katalog-card-retail span { font-size: 10px; font-weight: 700; color: var(--text2); letter-spacing: 0.05em; }
+  .katalog-card-retail strong { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 800; }
+  .katalog-tiers { display: flex; flex-direction: column; gap: 6px; }
+  .katalog-tier-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #FFF0F5; }
+  .katalog-tier-name { font-size: 11px; font-weight: 800; text-transform: uppercase; }
+  .katalog-tier-info { text-align: right; }
+  .katalog-tier-price { font-family: 'DM Mono', monospace; font-weight: 700; font-size: 12px; color: var(--text); display: block; }
+  .profit-pill { display: inline-block; padding: 2px 7px; border-radius: 12px; font-size: 10px; font-weight: 700; margin-top: 3px; letter-spacing: 0.02em;}
+  .profit-pill.good { background: var(--green-bg); color: var(--green); }
+  .profit-pill.bad { background: var(--red-bg); color: var(--red); }
+.katalog-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,0.15); transform: scale(1.02); }
+
+#katalog-block-a, #katalog-block-b { transition: opacity 0.2s ease-in-out; }
+.katalog-filter-btn { transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+
+  /* ── SALES ORDER COMPONENT ── */
+  .so-container { max-width: 860px; margin: 0 auto; }
+  .invoice-block { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; background: #fff;}
+  .invoice-head { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .invoice-head-left { display: flex; align-items: center; gap: 8px; }
+  .invoice-num-input { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; border: 1.5px solid var(--border2); border-radius: 4px; padding: 6px 10px; width: 220px; }
+  .invoice-body { padding: 12px; }
+  .order-cols { display: grid; grid-template-columns: minmax(0,3fr) 60px minmax(0,1.2fr) 90px 32px; gap: 6px; margin-bottom: 5px; }
+  .order-col-label { font-size: 11px; color: var(--text3); font-weight: 600; }
+  .order-row-grid { display: grid; grid-template-columns: minmax(0,3fr) 60px minmax(0,1.2fr) 90px 32px; gap: 6px; align-items: start; margin-bottom: 5px; position: relative; }
+  .sku-wrap { position: relative; }
+  .suggest-box { position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 200px; overflow-y: auto; }
+  .suggest-item { padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; border-bottom: 1px solid #f0f0f0;}
+  .suggest-price { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .sku-matched input { border-color: var(--green-border) !important; background: var(--green-bg) !important; }
+  .del-btn { background: none; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text3); cursor: pointer; padding: 6px; line-height: 1; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .add-product-btn { width: 100%; padding: 7px; background: none; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text3); margin-top: 6px; font-weight:600;}
+  .invoice-foot { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; justify-content: flex-end; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); background: var(--surface2); }
+  .add-invoice-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; cursor: pointer; color: var(--text2); font-weight: 600; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  .summary-card { background: #FEFAD0; border-radius: var(--radius-sm); padding: 12px 14px; border: 1px solid var(--border); }
+  .summary-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; font-weight: 600; text-transform: uppercase;}
+  .summary-value { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .generate-btn { width: 100%; padding: 13px; background: var(--text); color: #fff; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+  /* ── CALENDAR COMPONENT ── */
+  .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 5px; }
+  .cal-title { font-weight: 800; font-size: 18px; color: var(--text); }
+  .cal-btn { background: #fff; border: 1px solid var(--border); padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700; font-size: 11px; }
+  .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 12px; font-weight: 800; color: var(--text3); margin-bottom: 8px; text-transform: uppercase;}
+  .calendar-grid-full { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(90px, 1fr); gap: 6px; }
+  .day-full { background: #fff; border-radius: 6px; padding: 6px; border: 1px solid #E5E7EB; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; cursor: pointer; min-height: 90px; transition: .2s;}
+  .day-full .day-num { font-size: 12px; font-weight: 800; color: var(--text2); align-self: flex-end; margin-bottom: 4px; }
+  .day-full.today { border-color: var(--accent); background: var(--accent-bg); }
+  .day-full.today .day-num { background: var(--accent); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .task-pill { font-size: 9.5px; padding: 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; text-transform: uppercase; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .task-pill.blue { background-color: #00A8FF; border: 1px solid #0097e6; } .task-pill.red { background-color: #FF4757; border: 1px solid #ff4757; } .task-pill.yellow { background-color: #F1C40F; border: 1px solid #f39c12; color: #333; } .task-pill.green { background-color: #2ED573; border: 1px solid #2bad5d; } .task-pill.purple { background-color: #9B59B6; border: 1px solid #8e44ad; } .task-pill.pink { background-color: #FF6B81; border: 1px solid #ff4757; } .task-pill.orange { background-color: #FFA502; border: 1px solid #eccc68; }
+  .task-pill.done { opacity: 0.5; text-decoration: line-through; }
+
+  /* ── OVERLAYS & MODALS ── */
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(26,58,92,0.6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; overflow-y:auto; padding: 20px 0;}
+  .modal-overlay.active { display: flex; }
+  .modal-content { background: #fff; width: 400px; max-width: 90%; border-radius: var(--radius); padding: 20px; position: relative; max-height: 90vh; overflow-y: auto;}
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px dashed var(--border); padding-bottom: 10px;}
+  .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text3); }
+  
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 18px; background: var(--text); color: #fff; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 2500; transform: translateY(80px) scale(.95); opacity: 0; transition: all .35s cubic-bezier(.34,1.56,.64,1); pointer-events: none; display: flex; align-items: center; gap: 8px; border-left: 3px solid #FF85B0; }
+  .toast.show { transform: translateY(0) scale(1); opacity: 1; }
+  .toast.error { background: #991B1B; border-left-color: #FCA5A5;}
+
+  .edit-row-grid { display: grid; grid-template-columns: minmax(0,2fr) 60px minmax(0,1.2fr) 30px; gap: 6px; align-items: center; margin-bottom: 8px; }
+
+ /* ── DATA MITRA COMPONENT (TABEL BARU) ── */
+  .mitra-badge { padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;}
+  .bg-prioritas { background: var(--gold-bg); color: var(--gold); border: 1px solid var(--gold-border); }
+  .bg-potensi { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .bg-reguler { background: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }
+  .bg-sleep { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .bg-vendor { background: var(--platinum-bg); color: var(--platinum); border: 1px solid var(--platinum-border); }
+
+  .mitra-table-wrapper { width: 100%; overflow-x: auto; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); margin-top: 10px; }
+  .mitra-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+  .mitra-table th { padding: 12px 15px; background: var(--surface2); color: var(--text2); font-weight: 800; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; transition: background 0.2s; user-select: none; }
+  .mitra-table th:hover { background: #E8F0FE; color: var(--accent); }
+  .mitra-table th span { font-size: 10px; color: var(--text3); margin-left: 4px; }
+  .mitra-table td { padding: 12px 15px; border-bottom: 1px solid var(--surface2); color: var(--text); vertical-align: middle; }
+  .mitra-table tbody tr { cursor: pointer; transition: background 0.2s; border-left: 4px solid transparent; }
+  .mitra-table tbody tr:hover { background: var(--accent-bg); }
+  
+  .mitra-table tbody tr.row-prioritas { border-left-color: var(--gold); }
+  .mitra-table tbody tr.row-potensi { border-left-color: var(--green); }
+  .mitra-table tbody tr.row-reguler { border-left-color: #1565C0; }
+  .mitra-table tbody tr.row-sleep { border-left-color: var(--red); }
+  .mitra-table tbody tr.row-vendor { border-left-color: var(--platinum); }
+
+  /* ── RESPONSIVE MOBILE ── */
+  @media (max-width: 768px) {
+    body, html { position: fixed; width: 100%; height: 100%; }
+    .app-wrapper { flex-direction: column; height: 100%; width: 100%; }
+    .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; order: 2; padding: 10px; flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.15); z-index: 100; -ms-overflow-style: none; scrollbar-width: none; }
+    .sidebar::-webkit-scrollbar { display: none; }
+    .main-area { order: 1; flex: 1; width: 100%; overflow: hidden; height: auto; }
+    .main-content { overflow-y: auto; overflow-x: hidden; padding: 10px; width: 100%; }
+    .sidebar-logo { display: none; }
+    .nav-list { flex-direction: row; padding: 0; margin: 0; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    .nav-item { white-space: nowrap; font-size: 12px; padding: 10px 16px; border-radius: 20px; }
+    .logout-btn { margin: 0 0 0 10px; padding: 10px 16px; border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; white-space: nowrap; font-size: 12px; }
+    .grid2 { grid-template-columns: 1fr !important; }
+    .widget-grid { grid-template-columns: 1fr 1fr !important; }
+    .card, .invoice-block, .so-container { max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; }
+    .invoice-body { overflow-x: auto; width: 100%; padding-bottom: 15px; -webkit-overflow-scrolling: touch; }
+    #edit-inv-items { overflow-x: auto; width: 100%; padding-bottom: 15px; -webkit-overflow-scrolling: touch; }
+    .order-cols, .order-row-grid, .edit-row-grid { min-width: 650px; }
+    .modal-content { width: 95% !important; max-width: 100%; padding: 15px; margin: 10px auto; max-height: 85vh; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .topbar { padding: 0 1rem; justify-content: space-between; gap: 10px; }
+    .summary-grid { grid-template-columns: 1fr !important; gap: 6px; }
+  }
+  @media (max-width: 480px) {
+    .widget-grid { grid-template-columns: 1fr !important; }
+  }
+/* PENANDA TUNGGAKAN > 3 HARI */
+  .inv-card.overdue-card {
+    border: 2px solid var(--red) !important;
+    background: #FFF5F5 !important;
+  }
+  .badge-overdue {
+    background: var(--red); 
+    color: #fff; 
+    font-size: 9px; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-weight: 700; 
+    margin-top: 5px; 
+    display: inline-block;
+  }
+.katalog-table-wrapper { width: 100%; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); margin-bottom: 20px; }
+.katalog-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 13px; }
+.katalog-table thead { position: sticky; top: -1px; z-index: 10; }
+.katalog-table th { padding: 10px 14px; background: var(--surface2); color: var(--text2); font-weight: 800; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid var(--border); white-space: nowrap; box-shadow: 0 2px 0 var(--border); }
+.katalog-table td { padding: 10px 14px; border-bottom: 1px solid var(--surface2); color: var(--text); vertical-align: middle; background: #fff; }
+.katalog-table tbody tr { cursor: pointer; transition: background 0.2s; }
+.katalog-table tbody tr:hover td { background: var(--accent-bg); }
+</style>
+</head>
+<body>
+
+<div id="global-loader">
+  <div class="typewriter-box"><div class="typewriter-text">Mitra NVMEE</div></div>
+  <div class="loading-subtext" id="loader-subtext">Menyinkronkan data...</div>
+</div>
+
+<div id="auth-screen">
+  <div class="auth-card"><div id="auth-card-content"></div></div>
+</div>
+
+<div class="app-wrapper">
+  <aside class="sidebar">
+    <div class="sidebar-logo">NVMEE <span>MITRA</span></div>
+    <ul class="nav-list">
+      <li class="nav-item active" onclick="switchView('view-dashboard', this)">🏠 Dashboard</li>
+      <li class="nav-item" onclick="switchView('view-so', this)">🛍️ Sales Order Generator</li>
+      <li class="nav-item" onclick="switchView('view-invoice', this)">🧾 Status Invoice</li>
+      <li class="nav-item" onclick="switchView('view-katalog', this)">📋 Katalog Harga</li>
+      <li class="nav-item" onclick="switchView('view-todo', this)">📅 Kalender Tim</li>
+      <li class="nav-item" onclick="switchView('view-notes', this)">📝 Notes Mitra</li>
+      <li class="nav-item" onclick="switchView('view-report', this)">📁 Report Bulanan</li>
+      <li class="nav-item" onclick="switchView('view-target', this)">🎯 Target</li>
+      <li class="nav-item" onclick="switchView('view-mitra', this)">👥 Data Mitra</li>
+    </ul>
+    <div class="logout-btn" onclick="logout()">🚪 Keluar Sesi</div>
+  </aside>
+
+  <main class="main-area">
+    <div class="topbar">
+      <div class="user-badge" id="topbar-user">👤 User</div>
+      <div style="display:flex; align-items:center; gap: 15px;">
+        <button id="btn-sync" onclick="loadFromCloud(false)" style="background:#E8F5E9; border:1px solid #81C784; color:#2E7D32; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;">🔄 Sinkron Data</button>
+        <div class="topbar-right" id="topbar-date"></div>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      
+      <div id="view-dashboard" class="view-section active">
+        <div class="page-header">
+          <div><h1>Dashboard Mitra</h1><p>Ringkasan performa sistem (Termasuk Semua Brand Jika Ada)</p></div>
+          <div>
+            <button class="btn-primary" style="background-color: var(--green); border: none; font-size: 13px;" onclick="document.getElementById('excel-file').click()">📥 Import Data Excel</button>
+            <input type="file" id="excel-file" accept=".csv, .xlsx, .xls" style="display:none" onchange="handleExcelImport(event)">
+          </div>
+        </div>
+        
+        <div class="grid2" id="dash-targets-container" style="margin-bottom: 15px;">
+           <div class="card" style="margin-bottom:0; border-color:var(--accent-light); padding:15px;">
+             <div class="card-title" style="color:var(--accent);">🎯 Target Bulanan (Bulan Ini)</div>
+             <div id="dash-target-month-content">Belum ada target diatur.</div>
+           </div>
+           <div class="card" style="margin-bottom:0; border-color:var(--platinum-border); padding:15px;">
+             <div class="card-title" style="color:var(--platinum);">🎯 Target Tahunan (Tahun Ini)</div>
+             <div id="dash-target-year-content">Belum ada target diatur.</div>
+           </div>
+        </div>
+
+        <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="widget w-blue">
+            <div style="font-size:10px; color:var(--text2);">Omzet Keseluruhan (Bulan Ini)</div>
+            <div id="d-raw-po" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div>
+            <div style="font-size:10px; font-weight:800; color:var(--text); text-transform:uppercase;">GRAND TOTAL FINAL</div>
+            <div class="widget-val" id="d-total-po">Rp 0</div>
+          </div>
+          <div class="widget w-green">
+            <div style="font-size:10px; color:var(--text2);">Sudah Bayar NVMEE (Bulan Ini)</div>
+            <div id="d-raw-paid" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div>
+            <div style="font-size:10px; font-weight:800; color:var(--green); text-transform:uppercase;">FINAL NVMEE</div>
+            <div class="widget-val" id="d-total-paid" style="color:var(--green)">Rp 0</div>
+          </div>
+          <div class="widget w-red">
+            <div style="font-size:10px; color:var(--text2);">Belum Bayar NVMEE (Bulan Ini)</div>
+            <div id="d-raw-unpaid" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div>
+            <div style="font-size:10px; font-weight:800; color:var(--red); text-transform:uppercase;">FINAL NVMEE</div>
+            <div class="widget-val" id="d-total-unpaid" style="color:var(--red)">Rp 0</div>
+          </div>
+          <div class="widget w-blue">
+            <div class="widget-title">Total QTY Order NVMEE</div>
+            <div class="widget-val" id="d-total-qty" style="margin-bottom:8px; margin-top:10px;">0 Pcs</div>
+            <div style="font-size:11px; color:var(--text2); margin-top:4px; font-weight:600;">Kat A: <span id="d-qty-a" style="color:var(--text)">0</span> &nbsp;|&nbsp; Kat B: <span id="d-qty-b" style="color:var(--text)">0</span></div>
+          </div>
+        </div>
+        
+        <div class="widget-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="widget w-orange">
+            <div style="font-size:10px; color:var(--text2);">Omzet NVMEE P. Jawa</div>
+            <div id="d-raw-jawa" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div>
+            <div style="font-size:10px; font-weight:800; color:var(--orange); text-transform:uppercase;">FINAL NVMEE</div>
+            <div class="widget-val" id="d-total-jawa">Rp 0</div>
+          </div>
+          <div class="widget w-orange">
+            <div style="font-size:10px; color:var(--text2);">Omzet NVMEE Luar P. Jawa</div>
+            <div id="d-raw-luar" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div>
+            <div style="font-size:10px; font-weight:800; color:var(--orange); text-transform:uppercase;">FINAL NVMEE</div>
+            <div class="widget-val" id="d-total-luar-jawa">Rp 0</div>
+          </div>
+        </div>
+
+       <div class="card" style="margin-top: 10px; margin-bottom: 20px; border-color: var(--red-border); background: #FFF5F5;">
+           <div class="card-title" style="color: var(--red);">⚠️ Tunggakan Invoice > 3 Hari</div>
+           <ul class="dash-list" id="d-overdue-list" style="max-height: 300px; overflow-y: auto;">
+              </ul>
+        </div>
+        <div class="grid2" style="gap: 15px;">
+          <div class="card"><div class="card-title">📌 To-Do List Aktif</div><ul class="dash-list" id="d-todo-today"></ul></div>
+          <div class="card"><div class="card-title">🏆 Top Mitra NVMEE (Bulan Ini)</div><ul class="dash-list" id="d-top-mitra"></ul></div>
+          <div class="card" style="margin-bottom:0;"><div class="card-title">📦 Top SKU Kat A</div><ul class="dash-list" id="d-top-sku-a"></ul></div>
+          <div class="card" style="margin-bottom:0;"><div class="card-title">📦 Top SKU Kat B</div><ul class="dash-list" id="d-top-sku-b"></ul></div>
+        </div>
+      </div>
+
+      <div id="view-so" class="view-section">
+        <div class="so-container">
+          <div class="page-header"><h1>Sales Order Generator</h1><p>Input order customer → Generate Excel siap import</p></div>
+          <div class="card">
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>&#9679; Info Customer</div>
+              <select id="cust-region" style="width: auto; padding: 5px 10px; font-size: 11px; height: auto; border-color: var(--border2); color: var(--text2); font-weight: 600; cursor:pointer;">
+                <option value="jawa">📍 Mitra Pulau Jawa</option><option value="luar_jawa">✈️ Mitra Luar Pulau Jawa</option>
+              </select>
+            </div>
+            <div class="grid2">
+              <div class="field full"><label>Nama Customer / Akun &amp; Penerima</label><input type="text" id="cust-name"></div>
+              <div class="field"><label>Customer Code</label><input type="text" id="cust-code"></div>
+              <div class="field"><label>No. Telepon</label><input type="text" id="cust-phone"></div>
+              <div class="field"><label>Ekspedisi</label><input type="text" id="cust-eksp" list="eksp-list" autocomplete="off"><datalist id="eksp-list"><option value="Makharya"><option value="J&T Cargo"><option value="J&T Express"><option value="Sentral Cargo"><option value="Pak Didik"></datalist></div>
+              <div class="field full"><label>Alamat Penerima</label><input type="text" id="cust-addr"></div>
+              <div class="field"><label>Kota</label><input type="text" id="cust-city"></div>
+              <div class="field"><label>Provinsi</label><input type="text" id="cust-prov"></div>
+              <div class="field"><label>No. NPWP</label><input type="text" id="cust-npwp" placeholder="(opsional)"></div>
+              <div class="field"><label>Nama NPWP</label><input type="text" id="cust-npwp-name" placeholder="(opsional)"></div>
+            </div>
+          </div>
+          <div id="extra-customer-cards"></div>
+          <div class="card">
+            <div class="card-title">&#9679; Paste Order WA</div>
+            <div style="position:relative">
+              <textarea id="wa-input" rows="5" style="width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;resize:vertical;background:var(--surface);color:var(--text);outline:none;padding-bottom:36px" placeholder="Paste list order dari WA..."></textarea>
+              <button onclick="parseWA()" style="position:absolute;right:8px;bottom:8px;background:#2E86C1;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;">&#10024; Ekstrak ke Invoice</button>
+            </div>
+            <div id="wa-result" style="font-size:12px;color:var(--text2);margin-top:6px; font-weight: 600;"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">&#9679; List Order</div>
+            <div id="invoices-container"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="add-invoice-btn" onclick="addInvoice(false)">+ Tambah Invoice (Sama)</button>
+              <button class="add-invoice-btn" onclick="addInvoice(true)" style="border-color:#FF85B0;color:#C0306A">+ Tambah Invoice (Beda)</button>
+            </div>
+          </div>
+          <div class="summary-grid" id="summary-grid" style="display:none">
+            <div class="summary-card"><div class="summary-label">Total Invoice</div><div class="summary-value" id="sum-inv">0</div></div>
+            <div class="summary-card"><div class="summary-label">Total Item</div><div class="summary-value" id="sum-items">0</div><div class="summary-sub" id="sum-items-breakdown" style="font-size:10px; color:var(--text3); font-weight:600; margin-top:4px;"></div></div>
+<div class="summary-card"><div class="summary-label">Grand Total</div><div class="summary-value" id="sum-total">Rp 0</div><div class="summary-sub" id="sum-total-breakdown" style="font-size:10px; color:var(--text3); font-weight:600; margin-top:4px;"></div></div>
+          </div>
+          <button class="generate-btn" onclick="generateExcel()">&#8659; Download Excel & Simpan ke Dashboard</button>
+        </div>
+      </div>
+
+      <div id="view-invoice" class="view-section">
+        <div class="page-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+          <div><h1>Status Invoice Pembayaran</h1><p>Bulan ini dipisah, bulan lalu masuk ke folder arsip (Klasifikasi by Tanggal Bayar jika Lunas).</p></div>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top: 5px; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow);">
+            <input type="text" id="inv-search" placeholder="🔍 Cari Nama / No. Invoice..." oninput="renderInvoiceList()" style="width: 220px; flex: 1; min-width: 200px; margin-bottom: 0;">
+            <div style="display:flex; gap: 15px; align-items:center;">
+               <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; cursor:pointer;"><input type="checkbox" id="inv-select-all" onchange="toggleSelectAllInvoices(this.checked)" style="width:16px; height:16px;"> Pilih Semua</label>
+               <button class="btn-primary" style="background-color: var(--red);" onclick="bulkDeleteInvoices()">🗑️ Hapus Terpilih</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="category-divider" id="inv-current-month-label">Bulan Ini</div>
+        <div class="grid2" style="align-items: start; margin-bottom: 25px;">
+          <div class="card" style="border-color: var(--red-border); background: #FFFDFD; margin-bottom:0;"><div class="card-title" style="color: var(--red);">❌ Belum Bayar</div><div id="inv-unpaid-list" style="display:flex; flex-direction:column; gap:4px;"></div></div>
+          <div class="card" style="border-color: var(--green-border); background: #FDFFFD; margin-bottom:0;"><div class="card-title" style="color: var(--green);">✅ Sudah Bayar</div><div id="inv-paid-list" style="display:flex; flex-direction:column; gap:4px;"></div></div>
+        </div>
+
+        <div class="category-divider">Arsip Bulan Sebelumnya</div>
+        <div id="inv-past-months-container" style="display:flex; flex-direction:column; gap:8px;">
+            </div>
+      </div>
+
+      <div id="view-katalog" class="view-section">
+        <div class="page-header" style="align-items: center;">
+  <div><h1>Katalog Harga & Margin</h1></div>
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <input type="text" id="katalog-search" placeholder="🔍 Cari Nama / SKU..." oninput="renderKatalog()" style="width:220px;">
+    <button class="btn-primary" onclick="openCatalogModal()">+ Tambah Produk</button>
+  </div>
+</div>
+<div style="display:flex; gap:8px; margin-bottom:15px;">
+  <button class="btn-outline katalog-filter-btn active" data-cat="all" onclick="filterKatalogCategory('all', this)">Semua</button>
+  <button class="btn-outline katalog-filter-btn" data-cat="A" onclick="filterKatalogCategory('A', this)">Kategori A</button>
+  <button class="btn-outline katalog-filter-btn" data-cat="B" onclick="filterKatalogCategory('B', this)">Kategori B</button>
+</div>
+        <div id="katalog-block-a">
+  <div class="category-divider">Kategori A: Catokan & Hairdryer</div>
+  <div class="katalog-table-wrapper">
+    <table class="katalog-table">
+      <thead><tr>
+        <th style="width:40px; text-align:center;">No</th>
+        <th>SKU</th>
+        <th>Nama Produk</th>
+        <th style="text-align:right;">Retail</th>
+        <th style="text-align:right; color:var(--silver);">Silver</th>
+        <th style="text-align:right; color:var(--gold);">Gold</th>
+        <th style="text-align:right; color:var(--accent);">Rose Gold</th>
+        <th style="text-align:right; color:var(--platinum);">Platinum</th>
+      </tr></thead>
+      <tbody id="katalog-table-a"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="katalog-block-b">
+  <div class="category-divider">Kategori B: Aksesoris & Barang Kecil</div>
+  <div class="katalog-table-wrapper">
+    <table class="katalog-table">
+      <thead><tr>
+        <th style="width:40px; text-align:center;">No</th>
+        <th>SKU</th>
+        <th>Nama Produk</th>
+        <th style="text-align:right;">Retail</th>
+        <th style="text-align:right; color:var(--silver);">Silver</th>
+        <th style="text-align:right; color:var(--gold);">Gold</th>
+        <th style="text-align:right; color:var(--accent);">Rose Gold</th>
+        <th style="text-align:right; color:var(--platinum);">Platinum</th>
+      </tr></thead>
+      <tbody id="katalog-table-b"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+      <div id="view-todo" class="view-section">
+        <div class="page-header" style="align-items: center;">
+          <div><h1>Kalender Tim</h1></div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div style="position:relative; width: 240px;">
+              <input type="text" id="cal-search" placeholder="🔍 Cari judul/catatan jadwal..." oninput="searchCalendar()">
+              <div id="cal-search-results" style="position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: #fff; z-index: 100; border: 1px solid var(--border2); border-radius: var(--radius-sm); display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12);"></div>
+            </div>
+            <button class="btn-primary" onclick="openTodoModal()">+ Tambah Jadwal</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="cal-header">
+            <div class="cal-title" id="cal-month-year">Bulan Tahun</div>
+            <div style="display: flex; gap: 6px;">
+              <button class="cal-btn" onclick="changeMonth(-1)">&lsaquo; Prev</button>
+              <button class="cal-btn" onclick="goToToday()" style="color:var(--accent); border-color:var(--accent-light);">Hari Ini</button>
+              <button class="cal-btn" onclick="changeMonth(1)">Next &rsaquo;</button>
+            </div>
+          </div>
+          <div class="calendar-days"><div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div></div>
+          <div class="calendar-grid-full" id="cal-grid"></div>
+        </div>
+      </div>
+
+      <div id="view-notes" class="view-section">
+        <div class="page-header" style="align-items: center;">
+          <div><h1>Notes Mitra</h1><p>Catatan meeting, kesepakatan, dan dokumentasi foto.</p></div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="notes-search-input" placeholder="🔍 Cari judul notes..." oninput="renderNotesList()" style="width:220px;">
+            <button class="btn-primary" onclick="openNoteModal()">+ Buat Notes Baru</button>
+          </div>
+        </div>
+        <div class="katalog-grid" id="notes-grid" style="margin-top: 15px;"></div>
+      </div>
+      
+      <div id="view-report" class="view-section">
+        <div class="page-header" style="align-items: center;">
+          <div><h1>Laporan Bulanan</h1><p>Pilih bulan untuk melihat statistik penuh (Berdasarkan Final Omzet).</p></div>
+        </div>
+        <div class="grid2" id="report-grid"></div>
+      </div>
+
+      <div id="view-report-detail" class="view-section">
+        <div class="page-header" style="align-items: center;">
+          <button class="btn-outline" onclick="closeReportDetail()" style="padding: 10px 16px;">🔙 Kembali ke List Bulan</button>
+          <div style="text-align: right;"><h1 id="rd-title">Bulan Tahun</h1><p>Statistik dan Performa Keseluruhan</p></div>
+        </div>
+        
+        <div style="margin-bottom: 15px; display:flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-import-specific" class="btn-primary" style="background-color: var(--green); font-size: 13px; padding: 10px 20px;">📥 Import Excel ke Laporan Ini</button>
+            <input type="file" id="excel-historical-file" accept=".csv, .xlsx, .xls" style="display:none" onchange="handleHistoricalExcelImport(event)">
+            
+            <button id="btn-atur-omzet" class="btn-primary" style="background-color: var(--accent); font-size: 13px; padding: 10px 20px;">+ Atur Omzet Brand Lain & Retur</button>
+        </div>
+
+        <div class="card" id="rd-target-container" style="margin-bottom: 15px; border-color:var(--accent-light); display: none;">
+            <div class="card-title" style="color:var(--accent);">🎯 Target Bulanan Laporan Ini</div>
+            <div id="rd-target-content">Belum ada target diatur.</div>
+        </div>
+
+        <div class="card" style="background-color: var(--surface2); border-color: var(--border);">
+            <div class="card-title" style="color: var(--text);">🌟 GRAND TOTAL FINAL OMZET (Semua Brand - Retur)</div>
+            <div class="widget-val" id="rm-grand-total" style="font-size: 28px; color: var(--accent);">Rp 0</div>
+            <div style="display:flex; gap: 15px; margin-top:10px; font-size:12px; font-weight:600; color: var(--text2);">
+                <div>Total NVMEE: <span id="rm-grand-nvmee">Rp 0</span></div>
+                <div>Total Brand Lain: <span id="rm-grand-other">Rp 0</span></div>
+                <div style="color: var(--red);">Total Retur: <span id="rm-grand-retur">Rp 0</span></div>
+            </div>
+        </div>
+        
+        <div class="category-divider">Rincian Omzet NVMEE</div>
+        <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 15px;">
+           <div class="widget w-blue"><div style="font-size:10px; color:var(--text2);">Omzet Total</div><div id="rm-raw-omset" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div><div style="font-size:10px; font-weight:800; color:var(--text); text-transform:uppercase;">FINAL NVMEE</div><div class="widget-val" id="rm-omset">Rp 0</div></div>
+           <div class="widget w-green"><div style="font-size:10px; color:var(--text2);">Sudah Bayar</div><div id="rm-raw-paid" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div><div style="font-size:10px; font-weight:800; color:var(--green); text-transform:uppercase;">FINAL NVMEE</div><div class="widget-val" id="rm-paid" style="color:var(--green)">Rp 0</div></div>
+           <div class="widget w-red"><div style="font-size:10px; color:var(--text2);">Belum Bayar</div><div id="rm-raw-unpaid" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div><div style="font-size:10px; font-weight:800; color:var(--red); text-transform:uppercase;">FINAL NVMEE</div><div class="widget-val" id="rm-unpaid" style="color:var(--red)">Rp 0</div></div>
+           <div class="widget w-blue"><div class="widget-title">Total QTY Order</div><div class="widget-val" id="rm-qty" style="margin-top:10px;">0 Pcs</div></div>
+        </div>
+        <div class="widget-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="widget w-orange"><div style="font-size:10px; color:var(--text2);">Omzet P. Jawa</div><div id="rm-raw-jawa" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div><div style="font-size:10px; font-weight:800; color:var(--orange); text-transform:uppercase;">FINAL NVMEE</div><div class="widget-val" id="rm-jawa">Rp 0</div></div>
+          <div class="widget w-orange"><div style="font-size:10px; color:var(--text2);">Omzet Luar P. Jawa</div><div id="rm-raw-luar" style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp 0</div><div style="font-size:10px; font-weight:800; color:var(--orange); text-transform:uppercase;">FINAL NVMEE</div><div class="widget-val" id="rm-luar">Rp 0</div></div>
+        </div>
+
+        <div class="category-divider">Rincian Brand Lain & Retur</div>
+        <div class="widget-grid" id="rd-extra-brands" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            </div>
+
+        <div class="card" style="margin-top: 15px;">
+           <div class="card-title">📊 Grafik Final Omset NVMEE Mingguan (Sudah vs Belum Bayar)</div>
+           <div class="weekly-chart" id="rd-chart"></div>
+           <div style="display:flex; justify-content:center; gap: 15px; margin-top:15px; font-size:11px; font-weight:700;"><span style="color:var(--green)">■ Sudah Bayar</span><span style="color:var(--red)">■ Belum Bayar</span></div>
+        </div>
+        <div class="grid2" style="margin-top: 15px;">
+           <div class="card" style="margin-bottom:0; grid-column: 1 / -1;"><div class="card-title">🏆 Top Mitra NVMEE (Bulan Ini)</div><ul class="dash-list" id="rd-top-mitra"></ul></div>
+           <div class="card" style="margin-bottom:0;"><div class="card-title">📦 Top SKU (Kategori A)</div><ul class="dash-list" id="rd-top-sku-a"></ul></div>
+           <div class="card" style="margin-bottom:0;"><div class="card-title">📦 Top SKU (Kategori B)</div><ul class="dash-list" id="rd-top-sku-b"></ul></div>
+        </div>
+      </div>
+
+      <div id="view-target" class="view-section">
+        <div class="page-header" style="align-items: center;">
+          <div><h1>Pengaturan Target</h1><p>Atur target Bulanan atau Tahunan berdasarkan Grand Total Final Omzet (Semua Brand - Retur).</p></div>
+        </div>
+        
+        <div class="grid2">
+            <div class="card" style="margin-bottom: 0;">
+                <div class="card-title" style="color: var(--platinum);">🎯 Target Tahunan</div>
+                <div class="field">
+                    <label>Pilih Tahun</label>
+                    <input type="number" id="target-year-input" placeholder="Contoh: 2026">
+                </div>
+                <div class="field">
+                    <label>Nominal Target (Rp)</label>
+                    <input type="number" id="target-year-val" placeholder="Contoh: 1000000000">
+                </div>
+                <button class="btn-primary" style="width:100%; background: var(--platinum);" onclick="saveTarget('yearly')">Simpan Target Tahunan</button>
+                
+                <div style="margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--text3); margin-bottom:8px;">DAFTAR TARGET TAHUNAN:</div>
+                    <ul class="dash-list" id="list-target-yearly"></ul>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 0;">
+                <div class="card-title" style="color: var(--accent);">🎯 Target Bulanan</div>
+                <div class="field">
+                    <label>Pilih Bulan</label>
+                    <input type="month" id="target-month-input">
+                </div>
+                <div class="field">
+                    <label>Nominal Target (Rp)</label>
+                    <input type="number" id="target-month-val" placeholder="Contoh: 50000000">
+                </div>
+                <button class="btn-primary" style="width:100%; background: var(--accent);" onclick="saveTarget('monthly')">Simpan Target Bulanan</button>
+
+                <div style="margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--text3); margin-bottom:8px;">DAFTAR TARGET BULANAN:</div>
+                    <ul class="dash-list" id="list-target-monthly"></ul>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <div id="view-mitra" class="view-section">
+        <div class="page-header" style="align-items:flex-start;">
+          <div><h1>Database Mitra</h1><p>Daftar lengkap mitra, klasifikasi, dan rekap akumulasi order</p></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+            <button class="btn-primary" onclick="openMitraModal()">+ Tambah Mitra</button>
+            <button class="btn-primary" style="background-color: var(--green); border: none;" onclick="document.getElementById('excel-mitra-file').click()">📥 Import Data Mitra (Excel)</button>
+            <input type="file" id="excel-mitra-file" accept=".csv, .xlsx, .xls" style="display:none" onchange="handleExcelMitraImport(event)">
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+           <input type="text" id="mitra-search" placeholder="🔍 Cari Mitra / Kota / Provinsi..." style="width:100%; max-width: 400px; padding:10px 14px; border-radius:8px; border:1px solid var(--border); font-size:13px;" oninput="renderMitraList()">
+        </div>
+        
+        <div class="summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+          <div class="summary-card" style="background:#fff;"><div class="summary-label">Total Mitra</div><div class="summary-value" id="sm-total" style="font-size:16px;">0</div></div>
+          <div class="summary-card" style="background:var(--gold-bg); border-color:var(--gold-border);"><div class="summary-label" style="color:var(--gold)">Prioritas</div><div class="summary-value" id="sm-prioritas" style="font-size:16px;">0</div></div>
+          <div class="summary-card" style="background:var(--green-bg); border-color:var(--green-border);"><div class="summary-label" style="color:var(--green)">Potensi</div><div class="summary-value" id="sm-potensi" style="font-size:16px;">0</div></div>
+          <div class="summary-card" style="background:#E3F2FD; border-color:#90CAF9;"><div class="summary-label" style="color:#1565C0">Reguler</div><div class="summary-value" id="sm-reguler" style="font-size:16px;">0</div></div>
+          <div class="summary-card" style="background:var(--red-bg); border-color:var(--red-border);"><div class="summary-label" style="color:var(--red)">Sleeping</div><div class="summary-value" id="sm-sleep" style="font-size:16px;">0</div></div>
+          <div class="summary-card" style="background:var(--platinum-bg); border-color:var(--platinum-border);"><div class="summary-label" style="color:var(--platinum)">Vendor</div><div class="summary-value" id="sm-vendor" style="font-size:16px;">0</div></div>
+        </div>
+
+        <div class="mitra-table-wrapper">
+          <table class="mitra-table">
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">No</th>
+                <th onclick="sortMitra('name')">Nama Store <span>↕</span></th>
+                <th onclick="sortMitra('city')">Kota <span>↕</span></th>
+                <th onclick="sortMitra('prov')">Provinsi <span>↕</span></th>
+                <th onclick="sortMitra('year')">2026 <span>↕</span></th>
+                <th style="text-align: right;" onclick="sortMitra('total')">Total Orderan <span>↕</span></th>
+                <th onclick="sortMitra('status')">Status <span>↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="mitra-list-container">
+              </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="monthly-extra-modal">
+  <div class="modal-content" style="width: 500px;">
+    <div class="modal-header">
+      <h3 style="margin:0; font-size:14px; font-weight:700;">Atur Omzet Tambahan & Retur</h3>
+      <button class="modal-close" onclick="closeMonthlyExtraModal()">&times;</button>
+    </div>
+    <p style="font-size: 11px; color: var(--text3); margin-bottom: 15px;">Pengaturan ini berlaku untuk laporan bulan: <strong id="me-month-label" style="color:var(--text);"></strong></p>
+    <input type="hidden" id="me-month-key">
+    
+    <div style="background: var(--surface2); padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 15px;">
+        <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:8px;">INPUT RAW OMZET BRAND LAIN (Otomatis /1.11 saat di-save)</div>
+        <div id="me-brands-container" style="display:flex; flex-direction:column; gap:8px;">
+            </div>
+        <button class="btn-outline" style="width:100%; margin-top:8px; border-style:dashed; font-size:10px;" onclick="addMeBrandRow()">+ Tambah Brand Lain</button>
+    </div>
+
+    <div style="background: var(--red-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--red-border); margin-bottom: 15px;">
+        <div class="field" style="margin-bottom:0;">
+            <label style="color: var(--red);">Total Retur Bulan Ini (Mengurangi Final Omzet)</label>
+            <input type="number" id="me-retur-val" placeholder="0">
+        </div>
+    </div>
+    
+    <div style="display:flex;">
+      <button class="btn-primary" style="width: 100%; padding: 10px;" onclick="saveMonthlyExtras()">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="note-modal"><div class="modal-content" style="width: 700px; max-width: 95%;"><div class="modal-header"><h3 style="margin:0; font-size:14px; font-weight:700;" id="note-modal-title">Form Notes Mitra</h3><button class="modal-close" onclick="closeNoteModal()">&times;</button></div><input type="hidden" id="note-id"><div class="grid2"><div class="field full"><label>Judul Notes</label><input type="text" id="note-title"></div><div class="field"><label>Tanggal</label><input type="date" id="note-date"></div><div class="field"><label>Jam</label><input type="time" id="note-time"></div></div><div class="field full" style="margin-top: 10px;"><label>Isi Catatan & Foto</label><div id="editor-container" style="height: 300px; background: #fff; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div></div><div style="display:flex; gap:8px; margin-top:15px;"><button id="btn-delete-note" class="btn-outline" style="color:var(--red); border-color:var(--red-border); display:none;" onclick="deleteNote()">Hapus Notes</button><button class="btn-primary" style="flex: 2;" onclick="saveNote()">Simpan Notes</button></div></div></div>
+<div class="modal-overlay" id="note-detail-modal"><div class="modal-content" style="width: 700px; max-width: 95%;"><div class="modal-header"><h3 style="margin:0; font-size:16px; font-weight:800;" id="note-detail-title">Judul Notes</h3><button class="modal-close" onclick="closeNoteDetailModal()">&times;</button></div><div style="font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 15px;" id="note-detail-meta">Tanggal - Jam</div><div id="note-detail-body" style="font-size: 13px; line-height: 1.6; padding: 15px; background: #fafafa; border: 1px solid #eee; border-radius: 8px; max-height: 50vh; overflow-y: auto;"></div><div style="display:flex; gap:8px; margin-top:15px; border-top: 1px dashed var(--border); padding-top: 15px;"><button class="btn-primary" style="flex: 1;" onclick="editCurrentNote()">✏️ Edit Notes Ini</button></div></div></div>
+<div class="modal-overlay" id="katalog-modal"><div class="modal-content" style="width: 500px;"><div class="modal-header"><h3 style="margin:0; font-size:14px; font-weight:700;">Tambah / Edit Produk</h3><button class="modal-close" onclick="closeCatalogModal()">&times;</button></div><div class="grid2"><div class="field full"><label>Nama Produk</label><input type="text" id="kat-name"></div><div class="field"><label>SKU</label><input type="text" id="kat-sku"></div><div class="field"><label>Kategori</label><select id="kat-category"><option value="A">Kat A</option><option value="B">Kat B</option></select></div><div class="field"><label>Harga Retail</label><input type="number" id="kat-retail" oninput="updateAllModalMargins()"></div><div class="field"><label style="color: var(--silver);">Harga Silver</label><input type="number" id="kat-silver" oninput="calcModalMargin('silver')"><div id="margin-silver" style="font-size:11px; font-weight:700; margin-top:4px;"></div></div><div class="field"><label style="color: var(--gold);">Harga Gold</label><input type="number" id="kat-gold" oninput="calcModalMargin('gold')"><div id="margin-gold" style="font-size:11px; font-weight:700; margin-top:4px;"></div></div><div class="field"><label style="color: var(--accent);">Harga Rose Gold</label><input type="number" id="kat-rosegold" oninput="calcModalMargin('rosegold')"><div id="margin-rosegold" style="font-size:11px; font-weight:700; margin-top:4px;"></div></div><div class="field"><label style="color: var(--platinum);">Harga Platinum</label><input type="number" id="kat-platinum" oninput="calcModalMargin('platinum')"><div id="margin-platinum" style="font-size:11px; font-weight:700; margin-top:4px;"></div></div><div class="field full"><label>Kata Kunci WA</label><input type="text" id="kat-keys"></div></div><div style="margin-top:15px; display:flex;"><button class="btn-primary" style="width: 100%; padding: 10px;" onclick="saveCatalog()">Simpan Produk</button></div></div></div>
+<div class="modal-overlay" id="inv-edit-modal"><div class="modal-content" style="width: 550px;"><div class="modal-header"><h3 style="margin:0; font-size:14px; font-weight:700;">Edit Detail Invoice</h3><button class="modal-close" onclick="closeInvEditModal()">&times;</button></div><input type="hidden" id="edit-inv-id"><div class="grid2"><div class="field full"><label>Nama Customer</label><input type="text" id="edit-inv-cust"></div><div class="field"><label>Region</label><select id="edit-inv-region"><option value="jawa">Jawa</option><option value="luar_jawa">Luar Jawa</option></select></div><div class="field"><label>Tier Harga</label><select id="edit-inv-tier" onchange="updateEditPricesByTier()"><option value="">Manual</option><option value="silver">Silver</option><option value="gold">Gold</option><option value="rosegold">Rose Gold</option><option value="platinum">Platinum</option></select></div><div class="field" id="edit-inv-paid-date-wrap" style="display:none;"><label>Tanggal Dibayarkan (Jika Lunas)</label><input type="date" id="edit-inv-paid-date" style="border-color:var(--green-border); background:var(--green-bg);"></div></div><div class="field full" style="margin-top:10px;"><label>Daftar Item</label><div id="edit-inv-items" style="display:flex; flex-direction:column; gap:8px;"></div></div><button class="btn-outline" onclick="addEditInvItem()" style="width:100%; margin-bottom:15px; border-style:dashed;">+ Tambah Baris Kosong</button><div style="display:flex; gap:8px;"><button class="btn-primary" style="flex: 1; padding: 10px;" onclick="saveEditedInvoice()">Simpan Perubahan</button></div></div></div>
+<div class="modal-overlay" id="inv-detail-modal"><div class="modal-content" style="width: 550px;"><div class="modal-header"><h3 style="margin:0; font-size:14px; font-weight:700;">Detail Invoice</h3><button class="modal-close" onclick="closeInvDetailModal()">&times;</button></div><div id="inv-detail-body" style="font-size: 13px;"></div></div></div>
+<div class="modal-overlay" id="todo-modal"><div class="modal-content"><div class="modal-header"><h3 style="margin:0; font-size:14px; font-weight:700;">Form Jadwal</h3><button class="modal-close" onclick="closeTodoModal()">&times;</button></div><input type="hidden" id="todo-id"><div class="grid2"><div class="field"><label>Tanggal</label><input type="date" id="todo-date"></div><div class="field"><label>Jam</label><input type="time" id="todo-time"></div></div><div class="field"><label>Judul Tugas</label><input type="text" id="todo-title"></div><div class="field"><label>Catatan</label><textarea id="todo-notes" rows="2"></textarea></div><div style="display:flex; gap:8px; margin-top:15px;"><button id="btn-delete-todo" class="btn-outline" style="color:var(--red); border-color:var(--red-border); display:none;" onclick="deleteTodo()">Hapus</button><button id="btn-done-todo" class="btn-outline" style="color:var(--green); border-color:var(--green-border); display:none;" onclick="toggleDoneTodo()">Selesai</button><button class="btn-primary" style="flex: 2;" onclick="saveTodo()">Simpan Jadwal</button></div></div></div>
+
+<div class="toast" id="toast">✅ Pesan Toast</div>
+
+<div id="mitra-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h3 id="mitra-modal-title">Tambah Mitra</h3><button class="modal-close" onclick="closeMitraModal()">&#10005;</button></div>
+      <input type="hidden" id="mitra-id">
+      <div class="field"><label>Nama Mitra</label><input type="text" id="mitra-name"></div>
+      <div class="field"><label>Kota</label><input type="text" id="mitra-city"></div>
+      <div class="field"><label>Provinsi</label><input type="text" id="mitra-prov"></div>
+      <div class="field"><label>Status Klasifikasi</label>
+        <select id="mitra-status">
+          <option value="prioritas">Prioritas</option>
+          <option value="potensi">Potensi</option>
+          <option value="reguler">Reguler</option>
+          <option value="sleep">Sleeping</option>
+          <option value="vendor">Vendor</option>
+        </select>
+      </div>
+      <div class="field"><label>Base Order Awal (Rp)</label><input type="number" id="mitra-base-order" value="0" onchange="calcMitraTotal()"></div>
+      
+      <div class="card-title" style="margin-top:15px; margin-bottom:10px;">Riwayat Order Tahunan Tambahan</div>
+      <div id="mitra-yearly-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
+      <button class="btn-outline" style="width:100%; margin-bottom:15px; font-size:11px;" onclick="addMitraYearly()">+ Tambah Tahun Baru</button>
+      
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--border); padding-top:10px; margin-bottom:15px;">
+         <span style="font-size:11px; font-weight:700;">GRAND TOTAL ORDER:</span>
+         <strong id="mitra-grand-total" style="color:var(--accent); font-family:'DM Mono',monospace; font-size:16px;">Rp 0</strong>
+      </div>
+
+      <button class="btn-primary" style="width:100%; margin-bottom:8px;" onclick="saveMitra()">Simpan Data Mitra</button>
+      <button class="btn-primary" id="btn-delete-mitra" style="width:100%; background:var(--red); border:none; display:none;" onclick="deleteMitra()">Hapus Mitra</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+// ==========================================
+// 0. LOADER & GOOGLE SHEETS API CONFIGURATION
+// ==========================================
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGzbTApMcmjzLEXP5_ZO5GRmssMr6ws1W4lOhNzmNrdkXfpavUdk3NT05R2pLUJPM/exec";
+let isSyncing = false; // Mencegah tabrakan data (Race Condition)
+
+function showLoader(msg = "Menyinkronkan data...") {
+    let loader = document.getElementById('global-loader');
+    document.getElementById('loader-subtext').textContent = msg;
+    loader.style.display = 'flex';
+    setTimeout(() => { loader.style.opacity = '1'; loader.style.visibility = 'visible'; }, 10);
+}
+
+function hideLoader() {
+    let loader = document.getElementById('global-loader');
+    loader.style.opacity = '0';
+    loader.style.visibility = 'hidden';
+    setTimeout(() => { loader.style.display = 'none'; }, 400);
+}
+
+// ==========================================
+// 0.5 DATA CLOUD (TARGET, OMZET EXTRA & KOMPRESI)
+// ==========================================
+let targets = JSON.parse(localStorage.getItem('nvmee_targets')) || { yearly: {}, monthly: {} };
+let monthlyExtras = JSON.parse(localStorage.getItem('nvmee_monthly_extras')) || {};
+
+function saveToCloud() {
+    if (isSyncing) return Promise.resolve(); // Cegah klik ganda
+    isSyncing = true;
+    let btn = document.getElementById('btn-sync');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+
+    // SIASAT CERDAS 1: Titipkan monthlyExtras ke dalam targets
+    let safeTargets = JSON.parse(JSON.stringify(targets));
+    safeTargets._embeddedExtras = monthlyExtras;
+
+    // SIASAT CERDAS 2: KOMPRESI DATA INVOICE (Mencegah Limit 50.000 Karakter Google Sheets)
+    // Ubah array object menjadi string terkompresi berukuran super kecil!
+    let compressedInvoices = LZString.compressToBase64(JSON.stringify(savedInvoices));
+    let compressedMitras = LZString.compressToBase64(JSON.stringify(mitras));
+
+    const payload = {
+        users: users,
+        catalog: CATALOG,
+        invoices: compressedInvoices, // Kirim versi kompresi ke server
+        mitras: compressedMitras,
+        todos: todos,
+        notes: notesData,
+        targets: safeTargets,
+        lastUpdated: Date.now()
+    };
+
+    return fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        isSyncing = false;
+        if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        return data;
+    })
+    .catch(err => {
+        console.error("Error saving to sheet:", err);
+        isSyncing = false;
+        if(btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    });
+}
+
+function loadFromCloud(isInitial = false) {
+    if(isInitial) showLoader("Menarik data dari server...");
+    else { let btn = document.getElementById('btn-sync'); if(btn) btn.textContent = '⏳ Menyinkron...'; }
+
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => {
+        if(data && Object.keys(data).length > 0) {
+            users = data.users || users;
+            CATALOG = data.catalog || CATALOG;
+            todos = data.todos || todos;
+            notesData = data.notes || notesData;
+            
+            // PROSES DEKOMPRESI (Ekstrak kembali data Invoice dari Cloud)
+            if (data.invoices) {
+                if (typeof data.invoices === 'string') {
+                    // Jika data berupa string terkompresi
+                    try {
+                        let decompressed = LZString.decompressFromBase64(data.invoices);
+                        if (decompressed) {
+                            savedInvoices = JSON.parse(decompressed);
+                        }
+                    } catch(e) {
+                        console.error("Gagal dekompresi data invoice dari server", e);
+                    }
+                } else {
+                    // Fallback jika format lama (masih array normal)
+                    savedInvoices = data.invoices;
+                }
+            }
+
+            if (data.mitras) {
+                if (typeof data.mitras === 'string') {
+                    try {
+                        let decompressed = LZString.decompressFromBase64(data.mitras);
+                        if (decompressed) mitras = JSON.parse(decompressed);
+                    } catch(e) {}
+                } else mitras = data.mitras;
+            }
+
+            // Ekstrak kembali data omzet ekstra yang dititipkan di dalam targets
+            if (data.targets) {
+                if (data.targets._embeddedExtras) {
+                    monthlyExtras = data.targets._embeddedExtras;
+                    delete data.targets._embeddedExtras;
+                }
+                targets = data.targets;
+            }
+
+            localStorage.setItem('nvmee_users', JSON.stringify(users));
+            localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG));
+            localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+            localStorage.setItem('nvmee_todos', JSON.stringify(todos));
+            localStorage.setItem('nvmee_notes', JSON.stringify(notesData));
+            localStorage.setItem('nvmee_targets', JSON.stringify(targets));
+            localStorage.setItem('nvmee_monthly_extras', JSON.stringify(monthlyExtras));
+        }
+        
+        if (isInitial) {
+            isFirstLoad = false; initAuth(); hideLoader();
+        } else {
+            updateDashboard();
+            if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList();
+            if(document.getElementById('view-katalog').classList.contains('active')) renderKatalog();
+            if(document.getElementById('view-todo').classList.contains('active')) renderCalendar();
+            if(document.getElementById('view-notes').classList.contains('active')) renderNotesList();
+            if(document.getElementById('view-report').classList.contains('active')) renderReportList();
+            if(document.getElementById('view-target').classList.contains('active')) renderTargetList();
+            if(document.getElementById('view-mitra').classList.contains('active')) renderMitraList();
+            
+            toast('Data berhasil disinkronkan dari Cloud! ✅');
+            let btn = document.getElementById('btn-sync');
+            if(btn) btn.textContent = '🔄 Sinkron Data';
+        }
+    })
+    .catch(err => {
+        console.error("Gagal sinkron dari cloud:", err);
+        if (isInitial) { isFirstLoad = false; initAuth(); hideLoader(); } 
+        else {
+            toast('Gagal menyinkronkan data. Periksa koneksi internet.', true);
+            let btn = document.getElementById('btn-sync'); if(btn) btn.textContent = '🔄 Sinkron Data';
+        }
+    });
+}
+
+// ==========================================
+// 1. DATA INITIALIZATION & DEFAULT CATALOG
+// ==========================================
+let users = JSON.parse(localStorage.getItem('nvmee_users')) || [];
+if(!users.find(u => u.username === 'Robsie')) {
+    users.push({username: 'Robsie', password: 'giicomjiayou', color: 'blue'});
+    localStorage.setItem('nvmee_users', JSON.stringify(users));
+}
+
+let currentUser = null; let authMode = 'login'; 
+
+function initAuth() {
+    let todayDate = new Date().toDateString();
+    let session = JSON.parse(localStorage.getItem('nvmee_session'));
+
+    if(session && session.date === todayDate) {
+        currentUser = session.user;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.querySelector('.app-wrapper').style.display = 'flex';
+        document.getElementById('topbar-user').innerHTML = `👤 ${currentUser.username}`;
+        
+        renderCalendar(); updateDashboard(); renderTargetList(); renderMitraList();
+        if(invoices.length === 0) addInvoice(false);
+    } else {
+        currentUser = null;
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.querySelector('.app-wrapper').style.display = 'none';
+        renderAuth();
+    }
+}
+
+function renderAuth() {
+    let html = `<h2>${authMode === 'login' ? 'Masuk Sistem' : 'Daftar Akun'}</h2><p>Sistem NVMEE Mitra Terpadu</p><input type="text" id="auth-user" class="auth-input" placeholder="Username"><input type="password" id="auth-pass" class="auth-input" placeholder="Password">`;
+    if(authMode === 'signup') {
+        let allColors = ['blue', 'red', 'yellow', 'green', 'orange', 'purple', 'pink'];
+        let avail = allColors.filter(c => !users.map(u=>u.color).includes(c));
+        let colorOpts = avail.map(c => `<option value="${c}">Warna: ${c.toUpperCase()}</option>`).join('');
+        if(avail.length === 0) colorOpts = '<option value="">(Tim penuh!)</option>';
+        html += `<select id="auth-color" class="auth-input"><option value="">-- Pilih Warna Akun Anda --</option>${colorOpts}</select>`;
+    }
+    html += `<button class="auth-btn" onclick="handleAuth()">${authMode === 'login' ? 'Masuk Sekarang' : 'Daftar Sekarang'}</button><div class="auth-switch" onclick="toggleAuthMode()">${authMode === 'login' ? 'Anggota baru? <span>Daftar di sini</span>' : 'Sudah punya akun? <span>Masuk di sini</span>'}</div>`;
+    document.getElementById('auth-card-content').innerHTML = html;
+}
+
+function toggleAuthMode() { authMode = authMode === 'login' ? 'signup' : 'login'; renderAuth(); }
+function handleAuth() {
+    let u = document.getElementById('auth-user').value.trim(), p = document.getElementById('auth-pass').value.trim();
+    if(!u || !p) return toast('Username & Password wajib diisi!', true);
+    if(authMode === 'login') {
+        let user = users.find(x => x.username === u && x.password === p);
+        if(user) { localStorage.setItem('nvmee_session', JSON.stringify({user, date: new Date().toDateString()})); showLoader("Memuat Dashboard..."); setTimeout(() => { initAuth(); hideLoader(); }, 800); } 
+        else toast('Username atau password salah!', true);
+    } else {
+        let c = document.getElementById('auth-color').value;
+        if(!c) return toast('Pilih warna akun!', true);
+        if(users.find(x => x.username.toLowerCase() === u.toLowerCase())) return toast('Username sudah dipakai!', true);
+        let newUser = {username: u, password: p, color: c}; users.push(newUser);
+        localStorage.setItem('nvmee_users', JSON.stringify(users)); localStorage.setItem('nvmee_session', JSON.stringify({user: newUser, date: new Date().toDateString()}));
+        showLoader("Mendaftarkan..."); saveToCloud().then(() => { initAuth(); hideLoader(); });
+    }
+}
+function logout() { showLoader("Keluar sesi..."); setTimeout(() => { localStorage.removeItem('nvmee_session'); initAuth(); hideLoader(); }, 800); }
+
+let todos = JSON.parse(localStorage.getItem('nvmee_todos')) || [];
+let savedInvoices = JSON.parse(localStorage.getItem('nvmee_saved_invoices')) || [];
+const monthNamesAll = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+const DEFAULT_CATALOG = [
+  {sku:"NV-HR-TAURUSV2-MM", name:"TAURUS HAIRSTYLER PINK", category:"A", retail:375000, platinum:270000, gold:291000, rosegold:278000, silver:337000, keys:["taurus pink","merah muda","taurus"]},
+  {sku:"NV-HR-TAURUSV2-HJ", name:"TAURUS HAIRSTYLER LIME", category:"A", retail:375000, platinum:270000, gold:291000, rosegold:278000, silver:337000, keys:["taurus hijau","lime"]},
+  {sku:"NV-HR-LIBRAV2-MM", name:"LIBRA HAIRSTYLER PINK", category:"A", retail:355000, platinum:255000, gold:276000, rosegold:270000, silver:318000, keys:["libra pink","merah muda","libra"]},
+  {sku:"NV-HR-LIBRAV2-U", name:"LIBRA HAIRSTYLER LILAC", category:"A", retail:355000, platinum:255000, gold:276000, rosegold:270000, silver:318000, keys:["libra ungu","lilac"]},
+  {sku:"NV-DRY-MINA-S", name:"MINA HAIRDRYER SILVER", category:"A", retail:525000, platinum:380000, gold:400000, rosegold:390000, silver:450000, keys:["mina silver","highspeed"]},
+  {sku:"NV-SIR-BIGKTK-MM", name:"DETANGLING BRUSH PINK", category:"B", retail:40000, platinum:27000, gold:31000, rosegold:29000, silver:35000, keys:["sisir besar","detangling","pink","brush"]}
+]; 
+
+let CATALOG = JSON.parse(localStorage.getItem('nvmee_catalog')) || DEFAULT_CATALOG;
+
+const DEFAULT_MITRAS = [
+  { id: 1, name: "Blibli", city: "Jakarta Timur", prov: "DKI JAKARTA", baseOrder: 271722000, status: "prioritas", yearlyOrders: {} },
+  { id: 2, name: "Farina Femme", city: "Surabaya", prov: "JAWA TIMUR", baseOrder: 18390000, status: "reguler", yearlyOrders: {} },
+  { id: 3, name: "Palu Makeup", city: "Palu", prov: "SULAWESI TENGAH", baseOrder: 394578000, status: "prioritas", yearlyOrders: {} },
+  { id: 4, name: "Toko Istana Indah Samarinda", city: "Samarinda", prov: "KALIMANTAN TIMUR", baseOrder: 737706000, status: "prioritas", yearlyOrders: {} }
+];
+
+let mitras = JSON.parse(localStorage.getItem('nvmee_mitras')) || DEFAULT_MITRAS;
+
+function getMitraGrandTotal(m) {
+    let t = m.baseOrder || 0;
+    if(m.yearlyOrders) {
+        Object.values(m.yearlyOrders).forEach(v => t += v);
+    }
+    return t;
+}
+
+let mitraSortCol = 'total';
+let mitraSortDir = 'desc';
+
+const statusWeights = {
+    'prioritas': 1,
+    'potensi': 2,
+    'reguler': 3,
+    'sleep': 4,
+    'vendor': 5
+};
+
+function sortMitra(col) {
+    if (mitraSortCol === col) {
+        mitraSortDir = mitraSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        mitraSortCol = col;
+        mitraSortDir = (col === 'name' || col === 'city' || col === 'prov' || col === 'status') ? 'asc' : 'desc';
+    }
+    
+    document.querySelectorAll('.mitra-table th span').forEach(el => el.innerHTML = '↕');
+    let thElements = document.querySelectorAll('.mitra-table th');
+    let indexMap = {'name': 1, 'city': 2, 'prov': 3, 'year': 4, 'total': 5, 'status': 6};
+    if(indexMap[col]) {
+        let activeSpan = thElements[indexMap[col]].querySelector('span');
+        if(activeSpan) activeSpan.innerHTML = mitraSortDir === 'asc' ? '↑' : '↓';
+    }
+    renderMitraList();
+}
+
+function renderMitraList() {
+    let container = document.getElementById('mitra-list-container');
+    let q = (document.getElementById('mitra-search')?.value || '').toLowerCase();
+    container.innerHTML = '';
+
+    let filtered = mitras.filter(m => 
+        m.name.toLowerCase().includes(q) || 
+        m.city.toLowerCase().includes(q) || 
+        m.prov.toLowerCase().includes(q)
+    );
+
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (mitraSortCol === 'name') { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); }
+        else if (mitraSortCol === 'city') { valA = a.city.toLowerCase(); valB = b.city.toLowerCase(); }
+        else if (mitraSortCol === 'prov') { valA = a.prov.toLowerCase(); valB = b.prov.toLowerCase(); }
+        else if (mitraSortCol === 'year') { 
+            valA = (a.yearlyOrders && a.yearlyOrders['2026']) ? a.yearlyOrders['2026'] : 0;
+            valB = (b.yearlyOrders && b.yearlyOrders['2026']) ? b.yearlyOrders['2026'] : 0;
+        }
+        else if (mitraSortCol === 'total') { valA = getMitraGrandTotal(a); valB = getMitraGrandTotal(b); }
+        else if (mitraSortCol === 'status') { valA = statusWeights[a.status] || 99; valB = statusWeights[b.status] || 99; }
+
+        if (valA < valB) return mitraSortDir === 'asc' ? -1 : 1;
+        if (valA > valB) return mitraSortDir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    let counts = { total: mitras.length, prioritas: 0, potensi: 0, reguler: 0, sleep: 0, vendor: 0 };
+    mitras.forEach(m => { if(counts[m.status] !== undefined) counts[m.status]++; });
+
+    document.getElementById('sm-total').textContent = counts.total;
+    document.getElementById('sm-prioritas').textContent = counts.prioritas;
+    document.getElementById('sm-potensi').textContent = counts.potensi;
+    document.getElementById('sm-reguler').textContent = counts.reguler;
+    document.getElementById('sm-sleep').textContent = counts.sleep;
+    document.getElementById('sm-vendor').textContent = counts.vendor;
+
+    if(filtered.length === 0) {
+        container.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text3); padding: 20px;">Mitra tidak ditemukan.</td></tr>';
+        return;
+    }
+
+    filtered.forEach((m, index) => {
+        let grandTotal = getMitraGrandTotal(m);
+        let year2026 = (m.yearlyOrders && m.yearlyOrders['2026']) ? m.yearlyOrders['2026'] : 0;
+        let badgeClass = 'bg-' + m.status;
+        let rowClass = 'row-' + m.status;
+        
+        container.innerHTML += `
+            <tr class="${rowClass}" onclick="openMitraModal(${m.id})">
+                <td style="text-align: center;">${index + 1}</td>
+                <td style="font-weight: 700; color: var(--text);">${m.name}</td>
+                <td>${m.city}</td>
+                <td>${m.prov}</td>
+                <td style="font-family: 'DM Mono', monospace; font-weight: 600;">Rp ${year2026.toLocaleString('id-ID')}</td>
+                <td style="text-align: right; font-family: 'DM Mono', monospace; font-weight: 700; color: var(--accent);">Rp ${grandTotal.toLocaleString('id-ID')}</td>
+                <td><span class="mitra-badge ${badgeClass}">${m.status}</span></td>
+            </tr>
+        `;
+    });
+}
+
+function handleExcelMitraImport(event) {
+    if (isSyncing) return toast('Sistem sedang sibuk. Coba sebentar lagi.', true);
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    showLoader("Mengimport Data Mitra...");
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(firstSheet);
+
+            let addedCount = 0; let skippedCount = 0;
+
+            json.forEach(row => {
+                let rawName = row['Nama Store'] || row['Nama'] || row['Mitra'] || row['Nama Mitra'] || row['Customer'];
+                if (!rawName) return;
+                let name = String(rawName).trim();
+
+                let exists = mitras.find(m => m.name.toLowerCase() === name.toLowerCase());
+                if(exists) { skippedCount++; return; }
+
+                let city = row['Kota'] || row['City'] || '-';
+                let prov = row['Provinsi'] || row['Province'] || '-';
+                
+                let rawStatus = String(row['Status'] || row['Klasifikasi'] || 'reguler').toLowerCase().trim();
+                let status = 'reguler';
+                if(rawStatus.includes('prioritas')) status = 'prioritas';
+                else if(rawStatus.includes('potensi')) status = 'potensi';
+                else if(rawStatus.includes('sleep')) status = 'sleep';
+                else if(rawStatus.includes('vendor')) status = 'vendor';
+
+                let baseOrder = parseFloat(row['Total Orderan'] || row['Total Order'] || row['Base Order'] || 0) || 0;
+                
+                let yearly = {};
+                if(row['2024']) yearly['2024'] = parseFloat(row['2024']) || 0;
+                if(row['2025']) yearly['2025'] = parseFloat(row['2025']) || 0;
+                if(row['2026']) yearly['2026'] = parseFloat(row['2026']) || 0;
+
+                mitras.push({
+                    id: Date.now() + Math.floor(Math.random()*10000) + addedCount,
+                    name: name,
+                    city: city,
+                    prov: prov,
+                    status: status,
+                    baseOrder: baseOrder,
+                    yearlyOrders: yearly
+                });
+                addedCount++;
+            });
+
+            localStorage.setItem('nvmee_mitras', JSON.stringify(mitras));
+            saveToCloud().then(() => {
+                hideLoader();
+                renderMitraList();
+                if(addedCount > 0) toast(`Berhasil import ${addedCount} Mitra! (${skippedCount} data ganda dilewati) ✅`);
+                else toast(`Tidak ada data baru ditambahkan. (${skippedCount} data sudah ada)`);
+            });
+        } catch (error) {
+            hideLoader(); toast("Gagal membaca file Excel.", true);
+        }
+        event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+let tempYearlyOrders = {};
+function openMitraModal(id = null) {
+    document.getElementById('mitra-modal').classList.add('active');
+    let title = document.getElementById('mitra-modal-title');
+    let btnDel = document.getElementById('btn-delete-mitra');
+
+    if(id) {
+        let m = mitras.find(x => x.id === id);
+        title.textContent = "Edit Data Mitra";
+        document.getElementById('mitra-id').value = m.id;
+        document.getElementById('mitra-name').value = m.name;
+        document.getElementById('mitra-city').value = m.city;
+        document.getElementById('mitra-prov').value = m.prov;
+        document.getElementById('mitra-status').value = m.status;
+        document.getElementById('mitra-base-order').value = m.baseOrder;
+        tempYearlyOrders = JSON.parse(JSON.stringify(m.yearlyOrders || {}));
+        btnDel.style.display = 'block';
+    } else {
+        title.textContent = "Tambah Mitra Baru";
+        document.getElementById('mitra-id').value = '';
+        document.getElementById('mitra-name').value = '';
+        document.getElementById('mitra-city').value = '';
+        document.getElementById('mitra-prov').value = '';
+        document.getElementById('mitra-status').value = 'reguler';
+        document.getElementById('mitra-base-order').value = '0';
+        tempYearlyOrders = {};
+        btnDel.style.display = 'none';
+    }
+    renderMitraYearlyInputs();
+}
+
+function closeMitraModal() { document.getElementById('mitra-modal').classList.remove('active'); }
+
+function renderMitraYearlyInputs() {
+    let cont = document.getElementById('mitra-yearly-container'); cont.innerHTML = '';
+    Object.keys(tempYearlyOrders).sort().forEach(year => {
+        cont.innerHTML += `<div style="display:grid; grid-template-columns: 80px 1fr 30px; gap:8px; align-items:center;"><input type="number" class="y-year" value="${year}" onchange="updateTempYearly(this)" placeholder="Tahun" style="font-size:11px; padding:6px;"><input type="number" class="y-val" value="${tempYearlyOrders[year]}" onchange="updateTempYearly(this)" placeholder="Nominal" style="font-size:11px; padding:6px;"><button class="del-btn" style="color:var(--red); padding:4px;" onclick="deleteTempYear('${year}')">✖</button></div>`;
+    });
+    calcMitraTotal();
+}
+function addMitraYearly() { let nextYear = new Date().getFullYear().toString(); if(tempYearlyOrders[nextYear] !== undefined) nextYear = (parseInt(nextYear)+1).toString(); tempYearlyOrders[nextYear] = 0; renderMitraYearlyInputs(); }
+function updateTempYearly(el) { let newTemp = {}; document.querySelectorAll('#mitra-yearly-container > div').forEach(r => { let yr = r.querySelector('.y-year').value; let vl = parseFloat(r.querySelector('.y-val').value) || 0; if(yr) newTemp[yr] = vl; }); tempYearlyOrders = newTemp; calcMitraTotal(); }
+function deleteTempYear(y) { delete tempYearlyOrders[y]; renderMitraYearlyInputs(); }
+function calcMitraTotal() { let base = parseFloat(document.getElementById('mitra-base-order').value) || 0; let total = base; Object.values(tempYearlyOrders).forEach(v => total += v); document.getElementById('mitra-grand-total').textContent = 'Rp ' + total.toLocaleString('id-ID'); }
+
+function saveMitra() {
+    let id = document.getElementById('mitra-id').value; let name = document.getElementById('mitra-name').value.trim();
+    if(!name) return toast('Nama Mitra wajib diisi!', true);
+    let newData = { id: id ? parseInt(id) : Date.now(), name: name, city: document.getElementById('mitra-city').value.trim(), prov: document.getElementById('mitra-prov').value.trim(), status: document.getElementById('mitra-status').value, baseOrder: parseFloat(document.getElementById('mitra-base-order').value) || 0, yearlyOrders: tempYearlyOrders };
+    if(id) { let idx = mitras.findIndex(x => x.id == id); if(idx !== -1) mitras[idx] = newData; } else mitras.push(newData);
+    localStorage.setItem('nvmee_mitras', JSON.stringify(mitras)); saveToCloud(); toast('Data mitra disimpan!'); closeMitraModal(); renderMitraList();
+}
+function deleteMitra() { let id = document.getElementById('mitra-id').value; if(confirm('Yakin ingin menghapus mitra ini?')) { mitras = mitras.filter(x => x.id != id); localStorage.setItem('nvmee_mitras', JSON.stringify(mitras)); saveToCloud(); toast('Data mitra dihapus!'); closeMitraModal(); renderMitraList(); } }
+
+// FUNGSI WAKTU & KLASIFIKASI BULAN
+function getEffectiveDate(inv) { return inv.paid ? (inv.paidDate ? new Date(inv.paidDate) : new Date(inv.timestamp)) : new Date(inv.timestamp); }
+function getMonthKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+
+function switchView(id, el) {
+  document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (id === 'view-report') document.getElementById('view-report-detail').classList.remove('active');
+
+  document.getElementById(id).classList.add('active'); el.classList.add('active');
+  
+  if (id === 'view-todo') goToToday();
+  if (id === 'view-so' && invoices.length === 0) addInvoice(false);
+  if (id === 'view-katalog') renderKatalog();
+  if (id === 'view-invoice') renderInvoiceList();
+  if (id === 'view-report') renderReportList();
+  if (id === 'view-notes') renderNotesList();
+  if (id === 'view-target') renderTargetList();
+  if (id === 'view-mitra') renderMitraList();
+  updateDashboard();
+}
+
+function toast(msg, isErr) {
+  var el = document.getElementById('toast'); el.textContent = msg; el.className = 'toast show' + (isErr ? ' error' : '');
+  setTimeout(function() { el.className = 'toast'; }, 3500);
+}
+
+// ==========================================
+// TARGET LOGIC
+// ==========================================
+function saveTarget(type) {
+    if (type === 'yearly') {
+        let y = document.getElementById('target-year-input').value;
+        let v = parseFloat(document.getElementById('target-year-val').value);
+        if(!y || isNaN(v)) return toast('Tahun & Nominal wajib diisi!', true);
+        targets.yearly[y] = v;
+    } else {
+        let m = document.getElementById('target-month-input').value; 
+        let v = parseFloat(document.getElementById('target-month-val').value);
+        if(!m || isNaN(v)) return toast('Bulan & Nominal wajib diisi!', true);
+        targets.monthly[m] = v;
+    }
+    
+    localStorage.setItem('nvmee_targets', JSON.stringify(targets));
+    saveToCloud(); toast('Target berhasil disimpan!');
+    renderTargetList(); updateDashboard();
+}
+
+function deleteTarget(type, key) {
+    if(!confirm(`Hapus target ${type} ini?`)) return;
+    if(type === 'yearly') delete targets.yearly[key]; else delete targets.monthly[key];
+    localStorage.setItem('nvmee_targets', JSON.stringify(targets));
+    saveToCloud(); toast('Target dihapus!');
+    renderTargetList(); updateDashboard();
+}
+
+function renderTargetList() {
+    let yList = document.getElementById('list-target-yearly');
+    let mList = document.getElementById('list-target-monthly');
+    yList.innerHTML = ''; mList.innerHTML = '';
+    
+    Object.keys(targets.yearly).sort().reverse().forEach(y => {
+        yList.innerHTML += `<li><div>Tahun <strong>${y}</strong></div><div style="display:flex; gap:10px; align-items:center;"><span>Rp ${targets.yearly[y].toLocaleString('id-ID')}</span> <button class="del-btn" style="color:var(--red);" onclick="deleteTarget('yearly','${y}')">✖</button></div></li>`;
+    });
+    
+    Object.keys(targets.monthly).sort().reverse().forEach(m => {
+        let [yy, mm] = m.split('-'); let lbl = `${monthNamesAll[parseInt(mm)-1]} ${yy}`;
+        mList.innerHTML += `<li><div><strong>${lbl}</strong></div><div style="display:flex; gap:10px; align-items:center;"><span>Rp ${targets.monthly[m].toLocaleString('id-ID')}</span> <button class="del-btn" style="color:var(--red);" onclick="deleteTarget('monthly','${m}')">✖</button></div></li>`;
+    });
+}
+
+// ==========================================
+// MONTHLY EXTRAS (BRAND LAIN & RETUR)
+// ==========================================
+let tempBrands = [];
+
+function openMonthlyExtraModal(monthKey = null) {
+    if(!monthKey) {
+        let now = new Date(); monthKey = getMonthKey(now);
+    }
+    document.getElementById('me-month-key').value = monthKey;
+    let [yy, mm] = monthKey.split('-');
+    document.getElementById('me-month-label').textContent = `${monthNamesAll[parseInt(mm)-1]} ${yy}`;
+    
+    let extraData = monthlyExtras[monthKey] || { brands: [], retur: 0 };
+    document.getElementById('me-retur-val').value = extraData.retur || '';
+    
+    tempBrands = [...extraData.brands];
+    renderMeBrands();
+    document.getElementById('monthly-extra-modal').classList.add('active');
+}
+
+function closeMonthlyExtraModal() { document.getElementById('monthly-extra-modal').classList.remove('active'); }
+
+function renderMeBrands() {
+    let cont = document.getElementById('me-brands-container'); cont.innerHTML = '';
+    if(tempBrands.length === 0) tempBrands.push({name: '', raw: ''});
+    
+    tempBrands.forEach((b, i) => {
+        cont.innerHTML += `
+            <div style="display:grid; grid-template-columns: 1fr 1fr 30px; gap:6px; align-items:center;">
+                <input type="text" value="${b.name}" placeholder="Nama Brand (Pandaoma dll)" onchange="tempBrands[${i}].name=this.value" style="font-size:12px;">
+                <input type="number" value="${b.raw}" placeholder="Omzet Rp" onchange="tempBrands[${i}].raw=parseFloat(this.value)||0" style="font-size:12px;">
+                <button class="del-btn" style="color:var(--red); padding:4px;" onclick="tempBrands.splice(${i},1); renderMeBrands();">✖</button>
+            </div>
+        `;
+    });
+}
+function addMeBrandRow() { tempBrands.push({name: '', raw: ''}); renderMeBrands(); }
+
+function saveMonthlyExtras() {
+    let key = document.getElementById('me-month-key').value;
+    let retur = parseFloat(document.getElementById('me-retur-val').value) || 0;
+    
+    let validBrands = tempBrands.filter(b => b.name.trim() !== '' && b.raw > 0);
+    
+    monthlyExtras[key] = { brands: validBrands, retur: retur };
+    localStorage.setItem('nvmee_monthly_extras', JSON.stringify(monthlyExtras));
+    saveToCloud(); toast('Data Omzet & Retur disimpan!');
+    
+    closeMonthlyExtraModal();
+    updateDashboard();
+    if(document.getElementById('view-report-detail').classList.contains('active')) {
+        showReportDetail(key); 
+    }
+}
+
+function calculateGrandTotal(monthKey) {
+    let [year, month] = monthKey.split('-');
+    month = parseInt(month) - 1; 
+    
+    let totalNVMEE = 0;
+    savedInvoices.forEach(inv => {
+        let d = getEffectiveDate(inv);
+        if(d.getFullYear() == year && d.getMonth() == month) {
+            totalNVMEE += (inv.total || 0);
+        }
+    });
+    
+    let finalNVMEE = Math.round(totalNVMEE / 1.11);
+    
+    let extra = monthlyExtras[monthKey] || { brands: [], retur: 0 };
+    let finalOther = 0;
+    extra.brands.forEach(b => { finalOther += Math.round((b.raw || 0) / 1.11); });
+    
+    let grandTotalFinal = finalNVMEE + finalOther - (extra.retur || 0);
+    return { finalNVMEE, finalOther, retur: extra.retur, grandTotalFinal, totalRawNVMEE: totalNVMEE };
+}
+
+// ==========================================
+// NOTES MITRA
+// ==========================================
+let notesData = JSON.parse(localStorage.getItem('nvmee_notes')) || [];
+let quillEditor;
+document.addEventListener('DOMContentLoaded', function() {
+   quillEditor = new Quill('#editor-container', { theme: 'snow', modules: { toolbar: [ [{ 'header': [1,2,3,false] }], [{ 'size': ['small',false,'large','huge'] }], ['bold','italic','underline','strike'], [{ 'color': [] }, { 'background': [] }], [{ 'list': 'ordered'}, { 'list': 'bullet' }], ['link','image'], ['clean'] ] } });
+});
+
+function renderNotesList() {
+   let q = (document.getElementById('notes-search-input').value || '').toLowerCase(); let grid = document.getElementById('notes-grid'); grid.innerHTML = '';
+   let filtered = notesData.filter(n => n.title.toLowerCase().includes(q) || (n.plainText && n.plainText.toLowerCase().includes(q)));
+   if (filtered.length === 0) { grid.innerHTML = '<div style="grid-column:1/-1; color:var(--text3); font-size:12px; text-align:center; padding: 20px;">Belum ada notes.</div>'; return; }
+   filtered.sort((a,b) => b.timestamp - a.timestamp).forEach(note => {
+      let dateStr = note.date; if(note.date && note.date.includes('-')) { let parts = note.date.split('-'); dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`; }
+      grid.innerHTML += `<div class="katalog-card" style="cursor:pointer; border-left: 4px solid var(--border2);" onclick="openNoteDetailModal(${note.id})"><div class="katalog-card-header" style="margin-bottom: 5px;"><div class="katalog-card-title">${note.title}</div><div class="katalog-card-sku" style="color:var(--text3); font-size:11px; margin-top:4px;">📅 ${dateStr} ${note.time ? '🕒 ' + note.time : ''}</div></div><div style="font-size:12px; color:var(--text2); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${note.plainText || '(Hanya media)'}</div></div>`;
+   });
+}
+function openNoteModal(id = null) { document.getElementById('note-modal').classList.add('active'); if (id) { let note = notesData.find(n => n.id === id); if (note) { document.getElementById('note-modal-title').textContent = 'Edit Notes'; document.getElementById('note-id').value = note.id; document.getElementById('note-title').value = note.title; document.getElementById('note-date').value = note.date; document.getElementById('note-time').value = note.time || ''; quillEditor.root.innerHTML = note.content; document.getElementById('btn-delete-note').style.display = 'block'; return; } } document.getElementById('note-modal-title').textContent = 'Buat Notes Baru'; document.getElementById('note-id').value = ''; document.getElementById('note-title').value = ''; let now = new Date(); document.getElementById('note-date').value = getFormattedDate(now.getFullYear(), now.getMonth(), now.getDate()); document.getElementById('note-time').value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'); quillEditor.root.innerHTML = ''; document.getElementById('btn-delete-note').style.display = 'none'; }
+function closeNoteModal() { document.getElementById('note-modal').classList.remove('active'); }
+function saveNote() { let id = document.getElementById('note-id').value; let title = document.getElementById('note-title').value.trim(); let date = document.getElementById('note-date').value; let time = document.getElementById('note-time').value; let content = quillEditor.root.innerHTML; let plainText = quillEditor.getText().trim(); if (!title) return toast('Judul wajib diisi!', true); if (id) { let idx = notesData.findIndex(n => n.id == id); if (idx !== -1) notesData[idx] = { ...notesData[idx], title, date, time, content, plainText, timestamp: Date.now() }; } else { notesData.push({ id: Date.now(), title, date, time, content, plainText, timestamp: Date.now() }); } localStorage.setItem('nvmee_notes', JSON.stringify(notesData)); saveToCloud(); toast('Notes disimpan!'); closeNoteModal(); renderNotesList(); }
+function deleteNote() { let id = document.getElementById('note-id').value; if (confirm('Hapus notes permanen?')) { notesData = notesData.filter(n => n.id != id); localStorage.setItem('nvmee_notes', JSON.stringify(notesData)); saveToCloud(); toast('Notes dihapus!'); closeNoteModal(); closeNoteDetailModal(); renderNotesList(); } }
+let currentDetailNoteId = null;
+function openNoteDetailModal(id) { let note = notesData.find(n => n.id == id); if (!note) return; currentDetailNoteId = id; let dateStr = note.date; if(note.date && note.date.includes('-')) { let parts = note.date.split('-'); dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`; } document.getElementById('note-detail-title').textContent = note.title; document.getElementById('note-detail-meta').textContent = `📅 Tanggal: ${dateStr} ${note.time ? ' | 🕒 Jam: ' + note.time : ''}`; let contentHTML = note.content.replace(/<img /g, '<img style="max-width:100%; height:auto; border-radius:6px;" '); document.getElementById('note-detail-body').innerHTML = contentHTML; document.getElementById('note-detail-modal').classList.add('active'); }
+function closeNoteDetailModal() { document.getElementById('note-detail-modal').classList.remove('active'); }
+function editCurrentNote() { closeNoteDetailModal(); if (currentDetailNoteId) openNoteModal(currentDetailNoteId); }
+
+// ==========================================
+// DASHBOARD & REPORT DETAIL
+// ==========================================
+
+function updateDashboard() {
+  let now = new Date();
+  let mKey = getMonthKey(now);
+  let yKey = now.getFullYear().toString();
+  
+  let totalPaid = 0, totalUnpaid = 0;
+  let qtyA = 0, qtyB = 0, totalQty = 0;
+  let totalJawa = 0, totalLuarJawa = 0; 
+  let skuCountA = {}, skuCountB = {}, mitraTotal = {}; 
+  
+  let calc = calculateGrandTotal(mKey); 
+  let totalPO = calc.totalRawNVMEE;
+  
+ savedInvoices.forEach(inv => {
+    let d = getEffectiveDate(inv); 
+    // MODIFIKASI: Invoice UNPAID dari bulan apa pun selalu dianggap masuk komponen bulan berjalan (aktif) agar terhitung di dashboard berjalan
+    let isCurrentMonth = false;
+    if (!inv.paid) {
+      isCurrentMonth = true; // Selalu tampilkan & hitung tunggakan lama di bulan aktif saat ini
+    } else {
+      isCurrentMonth = (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear());
+    }
+
+    if(isCurrentMonth) {
+      let t = inv.total || 0; 
+      if (inv.paid) totalPaid += t; else totalUnpaid += t;
+      if (inv.region === 'jawa') totalJawa += t;
+      if (inv.region === 'luar_jawa') totalLuarJawa += t;
+
+      if(inv.customer) { 
+        let rawName = inv.customer.trim(); let keyName = rawName.toUpperCase();
+        if (!mitraTotal[keyName]) mitraTotal[keyName] = { name: rawName, total: 0 };
+        mitraTotal[keyName].total += t;
+      }
+
+      if(inv.items) { 
+          inv.items.forEach(it => { 
+              if(it.sku) {
+                  let prod = CATALOG.find(p => p.sku === it.sku);
+                  let cat = prod ? (prod.category || 'A').toUpperCase().trim() : 'A';
+                  let q = it.qty || 0;
+                  totalQty += q;
+                  if(cat === 'B') { qtyB += q; skuCountB[it.sku] = (skuCountB[it.sku] || 0) + q; } 
+                  else { qtyA += q; skuCountA[it.sku] = (skuCountA[it.sku] || 0) + q; }
+              } 
+          }); 
+      }
+    }
+  });
+
+  document.getElementById('d-raw-po').textContent = 'Rp ' + totalPO.toLocaleString('id-ID') + ' (Raw NVMEE)';
+  document.getElementById('d-total-po').textContent = 'Rp ' + calc.grandTotalFinal.toLocaleString('id-ID');
+  
+  document.getElementById('d-raw-paid').textContent = 'Rp ' + totalPaid.toLocaleString('id-ID');
+  document.getElementById('d-total-paid').textContent = 'Rp ' + Math.round(totalPaid / 1.11).toLocaleString('id-ID');
+  document.getElementById('d-raw-unpaid').textContent = 'Rp ' + totalUnpaid.toLocaleString('id-ID');
+  document.getElementById('d-total-unpaid').textContent = 'Rp ' + Math.round(totalUnpaid / 1.11).toLocaleString('id-ID');
+  
+  document.getElementById('d-total-qty').textContent = totalQty.toLocaleString('id-ID') + ' Pcs';
+  document.getElementById('d-qty-a').textContent = qtyA.toLocaleString('id-ID'); document.getElementById('d-qty-b').textContent = qtyB.toLocaleString('id-ID');
+  document.getElementById('d-raw-jawa').textContent = 'Rp ' + totalJawa.toLocaleString('id-ID'); document.getElementById('d-total-jawa').textContent = 'Rp ' + Math.round(totalJawa / 1.11).toLocaleString('id-ID');
+  document.getElementById('d-raw-luar').textContent = 'Rp ' + totalLuarJawa.toLocaleString('id-ID'); document.getElementById('d-total-luar-jawa').textContent = 'Rp ' + Math.round(totalLuarJawa / 1.11).toLocaleString('id-ID');
+
+  let targetM = targets.monthly[mKey];
+if(targetM) {
+    let pctReal = Math.round((calc.grandTotalFinal / targetM) * 100);
+    let pctBar = Math.min(100, pctReal);
+    document.getElementById('dash-target-month-content').innerHTML = `
+      <div style="font-size:18px; font-weight:800; color:var(--text); font-family:'DM Mono',monospace;">Rp ${calc.grandTotalFinal.toLocaleString('id-ID')}</div>
+      <div class="progress-bg"><div class="progress-fill" style="width:${pctBar}%; background:${pctReal >= 100 ? 'var(--green)' : 'var(--accent)'};"></div></div>
+      <div class="progress-text"><span>Tercapai: ${pctReal}%</span><span>Target: Rp ${targetM.toLocaleString('id-ID')}</span></div>
+    `;
+} else document.getElementById('dash-target-month-content').innerHTML = '<div style="font-size:11px; color:var(--text3);">Belum diatur. Ke menu Target.</div>';
+
+  let targetY = targets.yearly[yKey];
+  if(targetY) {
+      let yGrandTotal = 0;
+      for(let i=1; i<=12; i++) {
+         let k = `${yKey}-${String(i).padStart(2,'0')}`;
+         yGrandTotal += calculateGrandTotal(k).grandTotalFinal;
+      }
+      let pctReal = Math.round((yGrandTotal / targetY) * 100);
+let pctBar = Math.min(100, pctReal);
+document.getElementById('dash-target-year-content').innerHTML = `
+  <div style="font-size:18px; font-weight:800; color:var(--text); font-family:'DM Mono',monospace;">Rp ${yGrandTotal.toLocaleString('id-ID')}</div>
+  <div class="progress-bg"><div class="progress-fill" style="width:${pctBar}%; background:var(--platinum);"></div></div>
+  <div class="progress-text"><span>Tercapai: ${pctReal}%</span><span>Target: Rp ${targetY.toLocaleString('id-ID')}</span></div>
+`;
+  } else document.getElementById('dash-target-year-content').innerHTML = '<div style="font-size:11px; color:var(--text3);">Belum diatur. Ke menu Target.</div>';
+
+  let todayStr = getFormattedDate(now.getFullYear(), now.getMonth(), now.getDate());
+  let pendingTodos = todos.filter(t => !t.done).sort((a,b) => { let cmp = a.date.localeCompare(b.date); if(cmp !== 0) return cmp; return (a.time||'23:59').localeCompare(b.time||'23:59'); }).slice(0, 5); 
+  document.getElementById('d-todo-today').innerHTML = pendingTodos.length ? pendingTodos.map(t => {
+    let statusLabel = ''; let actionBtns = '';
+    if (t.date === todayStr) statusLabel = `<span style="background:var(--accent-bg); padding:2px 6px; border-radius:4px; font-size:9px;">📍 HARI INI</span>`;
+    else if (t.date < todayStr) statusLabel = `<span style="background:var(--red-bg); padding:2px 6px; border-radius:4px; font-size:9px;">⚠️ LEWAT</span>`;
+    return `<li class="dash-todo-item" onclick="openEditTodo('${t.id}')"><div style="flex:1;"><div style="font-size:10px; color:var(--text3); font-weight:800;">📅 ${t.date} ${t.time?'🕒 '+t.time:''} ${statusLabel}</div><div style="font-weight:800; font-size:13px;">${t.title}</div></div></li>`;
+  }).join('') : '<li style="justify-content:center;color:var(--text3)">Kosong 🎉</li>';
+
+  let mArr = Object.values(mitraTotal).sort((a,b) => b.total - a.total).slice(0,5);
+  document.getElementById('d-top-mitra').innerHTML = mArr.length ? mArr.map((m,i) => `<li><div>${i+1}. <strong>${m.name}</strong></div><div style="font-weight:700">Rp ${m.total.toLocaleString('id-ID')}</div></li>`).join('') : '<li style="justify-content:center;color:var(--text3)">Belum ada data SO</li>';
+  let skuArrA = Object.keys(skuCountA).map(k => ({sku: k, qty: skuCountA[k]})).sort((a,b) => b.qty - a.qty).slice(0, 10);
+  document.getElementById('d-top-sku-a').innerHTML = skuArrA.length ? skuArrA.map((s,i) => `<li><div>${i+1}. <strong>${s.sku}</strong></div><div class="badge">${s.qty} Pcs</div></li>`).join('') : '<li>Belum ada data</li>';
+  let skuArrB = Object.keys(skuCountB).map(k => ({sku: k, qty: skuCountB[k]})).sort((a,b) => b.qty - a.qty).slice(0, 10);
+  document.getElementById('d-top-sku-b').innerHTML = skuArrB.length ? skuArrB.map((s,i) => `<li><div>${i+1}. <strong>${s.sku}</strong></div><div class="badge">${s.qty} Pcs</div></li>`).join('') : '<li>Belum ada data</li>';
+
+// --- LOGIKA MENAMPILKAN DETIL TUNGGAKAN > 3 HARI DI COLOUMN DASHBOARD ---
+  let overdueHTML = '';
+  [...savedInvoices].sort((a,b) => b.timestamp - a.timestamp).forEach(inv => {
+      if (!inv.paid) {
+          let dCreated = new Date(inv.timestamp);
+          let diffDays = Math.floor((now - dCreated) / (1000 * 60 * 60 * 24));
+          if (diffDays > 3) {
+              overdueHTML += `
+              <li style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:10px; border:1px solid var(--red-border); border-radius:6px; margin-bottom:8px;">
+                  <div>
+                      <div style="font-weight:800; color:var(--accent); font-size:13px;">${inv.customer || '-'}</div>
+                      <div style="font-size:11px; color:var(--text3);">No Invoice: <strong>${inv.invNum || inv.id}</strong></div>
+                      <div style="font-size:12px; font-weight:700; color:var(--red);">Rp ${(inv.total||0).toLocaleString('id-ID')} <span style="font-size:10px; background:var(--red); color:#fff; padding:2px 4px; border-radius:4px; margin-left:4px;">Telat ${diffDays} Hari</span></div>
+                  </div>
+                  <button class="btn-primary" style="background:var(--green); font-size:11px; padding:8px 12px; border:none; border-radius:4px; cursor:pointer;" onclick="markPaidFromDashboard(${inv.id})">✅ Sudah Lunas</button>
+              </li>`;
+          }
+      }
+  });
+
+  let overdueContainer = document.getElementById('d-overdue-list');
+  if (overdueContainer) {
+      overdueContainer.innerHTML = overdueHTML || '<li style="justify-content:center; color:var(--green); font-weight:bold; padding:10px;">🎉 Mantap! Tidak ada invoice yang menunggak lebih dari 3 hari.</li>';
+  }
+}
+
+function renderReportList() {
+   let reportGrid = document.getElementById('report-grid'); reportGrid.innerHTML = ''; let grouped = {}; let yr = new Date().getFullYear();
+   for(let i=1; i<=5; i++) { let key = `${yr}-${String(i).padStart(2, '0')}`; grouped[key] = { label: `${monthNamesAll[i-1]} ${yr}`, year: yr, month: i-1, qty: 0, qtyA: 0, qtyB: 0 };}
+   
+   savedInvoices.forEach(inv => { 
+       let d = getEffectiveDate(inv); let key = getMonthKey(d); 
+       if (!grouped[key]) grouped[key] = { label: `${monthNamesAll[d.getMonth()]} ${d.getFullYear()}`, year: d.getFullYear(), month: d.getMonth(), qty: 0, qtyA: 0, qtyB: 0 }; 
+       grouped[key].qty += (inv.totalQty || 0);  
+       
+       if(inv.items) {
+           inv.items.forEach(it => {
+               if(it.sku) {
+                   let prod = CATALOG.find(p => p.sku === it.sku);
+                   let cat = prod ? (prod.category || 'A').toUpperCase().trim() : 'A';
+                   if(cat === 'B') grouped[key].qtyB += (it.qty || 0);
+                   else grouped[key].qtyA += (it.qty || 0);
+               }
+           });
+       }
+   });
+   
+   Object.keys(monthlyExtras).forEach(key => { if(!grouped[key]) { let [yy, mm] = key.split('-'); grouped[key] = { label: `${monthNamesAll[parseInt(mm)-1]} ${yy}`, year: parseInt(yy), month: parseInt(mm)-1, qty: 0, qtyA: 0, qtyB: 0 }; } });
+
+   let sortedKeys = Object.keys(grouped).sort((a, b) => { let [yA, mA] = a.split('-'); let [yB, mB] = b.split('-'); return yB !== yA ? parseInt(yB) - parseInt(yA) : parseInt(mB) - parseInt(mA); });
+   if(sortedKeys.length === 0) { reportGrid.innerHTML = '<div style="color:var(--text3); font-size:12px; grid-column:1/-1; text-align:center;">Belum ada arsip laporan.</div>'; return; }
+   
+   sortedKeys.forEach(key => {
+      let g = grouped[key]; let isCurrent = (new Date().getFullYear() === g.year && new Date().getMonth() === g.month);
+      let badge = isCurrent ? '<span style="background:var(--accent); color:#fff; padding:2px 6px; border-radius:4px; font-size:9px;">BULAN INI</span>' : '';
+      
+      let calc = calculateGrandTotal(key);
+      let html = `
+        <div class="card" style="cursor:pointer; transition:0.2s; position:relative;" onclick="showReportDetail('${key}')" onmouseover="this.style.borderColor='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)'">
+           <div style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">${g.label} ${badge}</div>
+           <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text3); margin-bottom:2px;"><span>Raw NVMEE</span><span>Rp ${calc.totalRawNVMEE.toLocaleString('id-ID')}</span></div>
+           <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text2); margin-bottom:4px; font-weight:bold;"><span>GRAND TOTAL FINAL</span><strong style="font-family:'DM Mono',monospace; color:var(--accent);">Rp ${calc.grandTotalFinal.toLocaleString('id-ID')}</strong></div>
+           <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text2); border-top: 1px dashed var(--surface2); padding-top: 6px; margin-top: 4px;"><span>Total QTY NVMEE</span><strong style="color:var(--text);">${g.qty.toLocaleString('id-ID')} Pcs</strong></div><div style="font-size:10px; color:var(--text3); text-align:right; margin-top:2px; font-weight:600;">Kat A: ${g.qtyA.toLocaleString('id-ID')} | Kat B: ${g.qtyB.toLocaleString('id-ID')}</div></div>`;
+      reportGrid.innerHTML += html;
+   });
+}
+
+function showReportDetail(key) {
+   window.currentReportMonthKey = key; 
+    
+   document.getElementById('view-report').classList.remove('active');
+   document.getElementById('view-report-detail').classList.add('active');
+   
+   let btnImport = document.getElementById('btn-import-specific');
+   if(btnImport) {
+       btnImport.onclick = function() {
+           document.getElementById('excel-historical-file').click();
+       };
+   }
+   
+   let [year, month] = key.split('-'); month = parseInt(month) - 1;
+   document.getElementById('rd-title').textContent = `${monthNamesAll[month]} ${year}`;
+   
+   let calc = calculateGrandTotal(key);
+   
+   // TAMPILKAN TARGET DI REPORT JIKA ADA
+   let targetCont = document.getElementById('rd-target-container');
+   let targetContent = document.getElementById('rd-target-content');
+   let targetM = targets.monthly[key];
+if(targetM) {
+    targetCont.style.display = 'block';
+    let pctReal = Math.round((calc.grandTotalFinal / targetM) * 100);
+    let pctBar = Math.min(100, pctReal);
+    targetContent.innerHTML = `
+        <div style="font-size:18px; font-weight:800; color:var(--text); font-family:'DM Mono',monospace;">Rp ${calc.grandTotalFinal.toLocaleString('id-ID')}</div>
+        <div class="progress-bg"><div class="progress-fill" style="width:${pctBar}%; background:${pctReal >= 100 ? 'var(--green)' : 'var(--accent)'};"></div></div>
+        <div class="progress-text"><span>Tercapai: ${pctReal}%</span><span>Target: Rp ${targetM.toLocaleString('id-ID')}</span></div>
+    `;
+} else {
+    targetCont.style.display = 'none';
+}
+
+   document.getElementById('rm-grand-total').textContent = `Rp ${calc.grandTotalFinal.toLocaleString('id-ID')}`;
+   document.getElementById('rm-grand-nvmee').textContent = `Rp ${calc.finalNVMEE.toLocaleString('id-ID')}`;
+   document.getElementById('rm-grand-other').textContent = `Rp ${calc.finalOther.toLocaleString('id-ID')}`;
+   document.getElementById('rm-grand-retur').textContent = `Rp ${(calc.retur||0).toLocaleString('id-ID')}`;
+   
+   let extraBrandsGrid = document.getElementById('rd-extra-brands');
+   extraBrandsGrid.innerHTML = '';
+   let exData = monthlyExtras[key] || { brands: [] };
+   if (exData.brands.length === 0) {
+       extraBrandsGrid.innerHTML = '<div style="font-size:11px; color:var(--text3); padding: 10px;">Belum ada brand tambahan diatur. Klik tombol Atur Omzet di atas.</div>';
+   } else {
+       exData.brands.forEach(b => {
+           let f = Math.round((b.raw||0)/1.11);
+           extraBrandsGrid.innerHTML += `
+              <div class="widget w-purple">
+                 <div style="font-size:10px; color:var(--text2);">Omzet ${b.name}</div>
+                 <div style="font-size:12px; color:var(--text3); margin-bottom:6px;">Rp ${(b.raw||0).toLocaleString('id-ID')}</div>
+                 <div style="font-size:10px; font-weight:800; color:var(--platinum); text-transform:uppercase;">FINAL OMZET</div>
+                 <div class="widget-val">Rp ${f.toLocaleString('id-ID')}</div>
+              </div>
+           `;
+       });
+   }
+
+   let omset = 0, qty = 0, paid = 0, unpaid = 0, jawa = 0, luar = 0;
+   let skuCountA = {}, skuCountB = {}, rdMitra = {}; 
+   let weekly = [ {paid:0, unpaid:0}, {paid:0, unpaid:0}, {paid:0, unpaid:0}, {paid:0, unpaid:0} ];
+   let qtyA = 0, qtyB = 0;
+   
+   savedInvoices.forEach(inv => {
+      let d = getEffectiveDate(inv);
+      if(d.getFullYear() == year && d.getMonth() == month) {
+         let t = inv.total || 0; omset += t; qty += (inv.totalQty || 0);
+         if(inv.paid) paid += t; else unpaid += t;
+         if(inv.region === 'jawa') jawa += t; if(inv.region === 'luar_jawa') luar += t;
+         
+         if(inv.customer) { let rawName = inv.customer.trim(); let keyName = rawName.toUpperCase(); if(!rdMitra[keyName]) rdMitra[keyName] = {name: rawName, total: 0}; rdMitra[keyName].total += t; }
+         let dateNum = d.getDate(); let wIdx = Math.ceil(dateNum / 7) - 1; if (wIdx > 3) wIdx = 3; 
+         if(inv.paid) weekly[wIdx].paid += t; else weekly[wIdx].unpaid += t;
+         
+         if(inv.items) { inv.items.forEach(it => { if(it.sku) { let prod = CATALOG.find(p => p.sku === it.sku); let cat = prod ? (prod.category || 'A').toUpperCase().trim() : 'A'; if(cat === 'B') { skuCountB[it.sku] = (skuCountB[it.sku] || 0) + (it.qty || 0); qtyB += (it.qty||0); } else { skuCountA[it.sku] = (skuCountA[it.sku] || 0) + (it.qty || 0); qtyA += (it.qty||0); } } }); } } });
+   
+   document.getElementById('rm-raw-omset').textContent = `Rp ${omset.toLocaleString('id-ID')}`; document.getElementById('rm-omset').textContent = `Rp ${Math.round(omset / 1.11).toLocaleString('id-ID')}`;
+   document.getElementById('rm-raw-paid').textContent = `Rp ${paid.toLocaleString('id-ID')}`; document.getElementById('rm-paid').textContent = `Rp ${Math.round(paid / 1.11).toLocaleString('id-ID')}`;
+   document.getElementById('rm-raw-unpaid').textContent = `Rp ${unpaid.toLocaleString('id-ID')}`; document.getElementById('rm-unpaid').textContent = `Rp ${Math.round(unpaid / 1.11).toLocaleString('id-ID')}`;
+   document.getElementById('rm-raw-jawa').textContent = `Rp ${jawa.toLocaleString('id-ID')}`; document.getElementById('rm-jawa').textContent = `Rp ${Math.round(jawa / 1.11).toLocaleString('id-ID')}`;
+   document.getElementById('rm-raw-luar').textContent = `Rp ${luar.toLocaleString('id-ID')}`; document.getElementById('rm-luar').textContent = `Rp ${Math.round(luar / 1.11).toLocaleString('id-ID')}`;
+   document.getElementById('rm-qty').innerHTML = `${qty.toLocaleString('id-ID')} Pcs<br><span style="font-size:11px;color:var(--text2);font-weight:600;">Kat A: ${qtyA.toLocaleString('id-ID')} | Kat B: ${qtyB.toLocaleString('id-ID')}</span>`;
+   
+   let mArr = Object.values(rdMitra).sort((a,b) => b.total - a.total).slice(0,5);
+   document.getElementById('rd-top-mitra').innerHTML = mArr.length ? mArr.map((m,i) => `<li><div>${i+1}. <strong>${m.name}</strong></div><div style="font-weight:700">Rp ${m.total.toLocaleString('id-ID')}</div></li>`).join('') : '<li>Belum ada data SO</li>';
+   let skuArrA = Object.keys(skuCountA).map(k => ({sku: k, qty: skuCountA[k]})).sort((a,b) => b.qty - a.qty).slice(0, 10);
+   document.getElementById('rd-top-sku-a').innerHTML = skuArrA.length ? skuArrA.map((s,i) => `<li><div>${i+1}. <strong>${s.sku}</strong></div><div class="badge">${s.qty} Pcs</div></li>`).join('') : '<li>Belum ada data</li>';
+   let skuArrB = Object.keys(skuCountB).map(k => ({sku: k, qty: skuCountB[k]})).sort((a,b) => b.qty - a.qty).slice(0, 10);
+   document.getElementById('rd-top-sku-b').innerHTML = skuArrB.length ? skuArrB.map((s,i) => `<li><div>${i+1}. <strong>${s.sku}</strong></div><div class="badge">${s.qty} Pcs</div></li>`).join('') : '<li>Belum ada data</li>';
+      
+   let weeklyFinal = weekly.map(w => ({ paid: Math.round(w.paid / 1.11), unpaid: Math.round(w.unpaid / 1.11) }));
+   renderWeeklyChart(weeklyFinal);
+   
+   document.getElementById('btn-atur-omzet').setAttribute('onclick', `openMonthlyExtraModal('${key}')`);
+}
+
+function renderWeeklyChart(weeklyData) {
+   let maxVal = 1; weeklyData.forEach(w => { if(w.paid > maxVal) maxVal = w.paid; if(w.unpaid > maxVal) maxVal = w.unpaid; });
+   let formatShort = (num) => { if(num >= 1000000) return (num/1000000).toFixed(1) + 'Jt'; if(num >= 1000) return Math.floor(num/1000) + 'K'; return num > 0 ? num : ''; };
+   let chartHTML = '';
+   weeklyData.forEach((w, i) => {
+       let pPct = (w.paid / maxVal) * 100; let uPct = (w.unpaid / maxVal) * 100;
+       chartHTML += `<div class="chart-col"><div class="bars-wrap"><div class="bar paid" style="height:${pPct}%"><div class="bar-label" style="color:var(--green)">${formatShort(w.paid)}</div></div><div class="bar unpaid" style="height:${uPct}%"><div class="bar-label" style="color:var(--red)">${formatShort(w.unpaid)}</div></div></div><span class="chart-label">Minggu ${i+1}</span></div>`;
+   });
+   document.getElementById('rd-chart').innerHTML = chartHTML;
+}
+
+function closeReportDetail() { document.getElementById('view-report-detail').classList.remove('active'); document.getElementById('view-report').classList.add('active'); }
+
+// ==========================================
+// FUNGSI INTI LAINNYA (SO, KATALOG, INVOICE, CALENDAR) 
+// ==========================================
+
+function calcModalMargin(tier) { let r = parseFloat(document.getElementById('kat-retail').value)||0; let t = parseFloat(document.getElementById('kat-'+tier).value)||0; let e = document.getElementById('margin-'+tier); if(!e) return; if(!r||!t){e.textContent='';return;} let p = r-t; let pct = Math.round((p/r)*100); let ok = p>0; e.textContent=`${ok?'+':''} Rp ${p.toLocaleString('id-ID')} (${pct}%)`; e.style.color=ok?'var(--green)':'var(--red)'; }
+function updateAllModalMargins() { ['silver','gold','rosegold','platinum'].forEach(calcModalMargin); }
+function openCatalogModal(sku = null) {
+    let p = sku ? CATALOG.find(x => x.sku === sku) : null;
+    document.getElementById('kat-sku').value = p ? p.sku : '';
+    document.getElementById('kat-name').value = p ? p.name : '';
+    document.getElementById('kat-category').value = p ? (p.category || 'A') : 'A';
+    document.getElementById('kat-retail').value = p ? p.retail : '';
+    document.getElementById('kat-silver').value = p ? p.silver : '';
+    document.getElementById('kat-gold').value = p ? p.gold : '';
+    document.getElementById('kat-rosegold').value = p ? p.rosegold : '';
+    document.getElementById('kat-platinum').value = p ? p.platinum : '';
+    document.getElementById('kat-keys').value = p && p.keys ? p.keys.join(', ') : '';
+    document.querySelector('#katalog-modal h3').textContent = p ? 'Edit Produk' : 'Tambah / Edit Produk';
+    updateAllModalMargins();
+    document.getElementById('katalog-modal').classList.add('active');
+}
+function closeCatalogModal() { document.getElementById('katalog-modal').classList.remove('active'); }
+function saveCatalog() { let sku=document.getElementById('kat-sku').value.trim(), name=document.getElementById('kat-name').value.trim(), category=document.getElementById('kat-category').value, retail=parseFloat(document.getElementById('kat-retail').value)||0, silver=parseFloat(document.getElementById('kat-silver').value)||0, gold=parseFloat(document.getElementById('kat-gold').value)||0, rosegold=parseFloat(document.getElementById('kat-rosegold').value)||0, platinum=parseFloat(document.getElementById('kat-platinum').value)||0, keys=document.getElementById('kat-keys').value.split(',').map(k=>k.trim().toLowerCase()).filter(k=>k); if(!sku||!name) return toast('SKU dan Nama wajib diisi!',true); let idx=CATALOG.findIndex(p=>p.sku===sku); let n={sku,name,category,retail,silver,gold,rosegold,platinum,keys}; if(idx!==-1) CATALOG[idx]=n; else CATALOG.push(n); localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG)); saveToCloud(); closeCatalogModal(); toast('Produk disimpan!'); renderKatalog(); }
+function deleteKatalog(sku) { if(confirm(`Yakin hapus SKU: ${sku}?`)){ CATALOG=CATALOG.filter(p=>p.sku!==sku); localStorage.setItem('nvmee_catalog', JSON.stringify(CATALOG)); saveToCloud(); toast('Produk dihapus!'); renderKatalog(); } }
+function renderKatalog() {
+    let q = (document.getElementById('katalog-search')?.value || '').toLowerCase();
+    let tA = document.getElementById('katalog-table-a'), tB = document.getElementById('katalog-table-b');
+    tA.innerHTML = ''; tB.innerHTML = '';
+    let countA = 0, countB = 0;
+
+    const tierCell = (tp, rp) => {
+        let t = parseFloat(tp) || 0, r = parseFloat(rp) || 0;
+        if (!r || !t) return `<td style="text-align:right; color:var(--text3); font-size:11px;">Belum Set</td>`;
+        let p = r - t, pct = Math.round((p / r) * 100), ok = p > 0, col = ok ? 'var(--green)' : 'var(--red)';
+        return `<td style="text-align:right;">
+            <div style="font-family:'DM Mono',monospace; font-weight:600;">Rp ${t.toLocaleString('id-ID')}</div>
+            <div style="font-size:10px; font-weight:700; color:${col};">${ok ? '+' : ''}Rp ${p.toLocaleString('id-ID')} (${pct}%)</div>
+        </td>`;
+    };
+
+    CATALOG.forEach(p => {
+        if (q && !p.name.toLowerCase().includes(q) && !p.sku.toLowerCase().includes(q)) return;
+        let cat = (p.category || 'A').toUpperCase();
+        let rowHTML = `
+            <tr onclick="openCatalogModal('${p.sku}')">
+                <td style="text-align:center;">${cat === 'B' ? ++countB : ++countA}</td>
+                <td style="font-family:'DM Mono',monospace; font-weight:600;">${p.sku}</td>
+                <td style="font-weight:700;">${p.name}</td>
+                <td style="text-align:right; font-family:'DM Mono',monospace; font-weight:700; color:var(--accent);">Rp ${(parseFloat(p.retail) || 0).toLocaleString('id-ID')}</td>
+                ${tierCell(p.silver, p.retail)}
+                ${tierCell(p.gold, p.retail)}
+                ${tierCell(p.rosegold, p.retail)}
+                ${tierCell(p.platinum, p.retail)}
+            </tr>`;
+        if (cat === 'B') tB.innerHTML += rowHTML; else tA.innerHTML += rowHTML;
+    });
+
+    if (!tA.innerHTML) tA.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text3); padding:20px;">Kosong</td></tr>';
+    if (!tB.innerHTML) tB.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text3); padding:20px;">Kosong</td></tr>';
+}
+
+function filterKatalogCategory(cat, btnEl) {
+    document.querySelectorAll('.katalog-filter-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+
+    let blockA = document.getElementById('katalog-block-a');
+    let blockB = document.getElementById('katalog-block-b');
+    let showA = (cat === 'all' || cat === 'A');
+    let showB = (cat === 'all' || cat === 'B');
+
+    fadeToggleBlock(blockA, showA);
+    fadeToggleBlock(blockB, showB);
+}
+
+function fadeToggleBlock(el, show) {
+    if (show) {
+        el.style.display = 'block';
+        el.style.opacity = '0';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => { el.style.opacity = '1'; });
+        });
+    } else {
+        el.style.opacity = '0';
+        setTimeout(() => {
+            if (el.style.opacity === '0') el.style.display = 'none';
+        }, 200);
+    }
+}
+
+let selectedInvoices = new Set();
+function toggleInvoiceSelection(id, isChecked) { if (isChecked) selectedInvoices.add(id); else selectedInvoices.delete(id); }
+function toggleSelectAllInvoices(isChecked) { const q = (document.getElementById('inv-search')?.value || '').toLowerCase(); savedInvoices.forEach(inv => { let n = (inv.customer||'').toLowerCase(), m = (inv.invNum||'').toLowerCase(); if(q && !n.includes(q) && !m.includes(q)) return; if (isChecked) selectedInvoices.add(inv.id); else selectedInvoices.delete(inv.id); }); renderInvoiceList(); }
+function bulkDeleteInvoices() { if (selectedInvoices.size === 0) return toast('Pilih minimal satu!', true); if (confirm(`Hapus ${selectedInvoices.size} invoice?`)) { savedInvoices = savedInvoices.filter(i => !selectedInvoices.has(i.id)); selectedInvoices.clear(); document.getElementById('inv-select-all').checked = false; localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); saveToCloud(); renderInvoiceList(); updateDashboard(); toast('Dihapus!'); } }
+function toggleInvoiceStatus(id) { let i = savedInvoices.findIndex(x=>x.id===id); if(i>-1) { savedInvoices[i].paid = !savedInvoices[i].paid; savedInvoices[i].paidDate = savedInvoices[i].paid ? Date.now() : null; localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); saveToCloud(); renderInvoiceList(); updateDashboard(); } }
+function deleteSavedInvoice(id) { if(confirm('Hapus riwayat invoice?')) { savedInvoices = savedInvoices.filter(i => i.id !== id); localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); saveToCloud(); renderInvoiceList(); updateDashboard(); } }
+
+// FUNGSI UNTUK MELUNASI INVOICE LANGSUNG DARI DASHBOARD
+function markPaidFromDashboard(id) {
+    if(confirm("Apakah Anda yakin invoice ini sudah dibayar/lunas?")) {
+        let invIndex = savedInvoices.findIndex(i => i.id == id);
+        if (invIndex !== -1) {
+            // Ubah status jadi lunas & catat tanggal hari ini
+            savedInvoices[invIndex].paid = true;
+            savedInvoices[invIndex].paidDate = Date.now();
+            
+            // Simpan ke local storage
+            localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices));
+            
+            // Simpan ke cloud / Google Sheet jika fungsi terhubung
+            if (typeof saveToCloud === "function") saveToCloud();
+            
+            // Refresh/Perbarui tampilan Dashboard & Database SO
+            updateDashboard();
+            if (typeof renderInvoiceList === "function") renderInvoiceList();
+            
+            // Munculkan notifikasi sukses
+            if (typeof toast === "function") toast("✅ Invoice berhasil ditandai Lunas!");
+        }
+    }
+}
+
+function renderInvoiceList() { 
+    let uEl = document.getElementById('inv-unpaid-list');
+    let pEl = document.getElementById('inv-paid-list');
+    let pastCont = document.getElementById('inv-past-months-container');
+    let q = (document.getElementById('inv-search')?.value || '').toLowerCase(); 
+    
+    uEl.innerHTML=''; pEl.innerHTML=''; pastCont.innerHTML=''; 
+    
+    let pastGroups = {}; 
+    let now = new Date();
+    let currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    document.getElementById('inv-current-month-label').textContent = `Bulan Ini: ${monthNamesAll[now.getMonth()]} ${now.getFullYear()}`;
+    
+    let currentUnpaid = '';
+    let currentPaid = '';
+
+    [...savedInvoices].sort((a,b)=>b.timestamp-a.timestamp).forEach(inv => { 
+        let n = (inv.customer||'').toLowerCase(), m = (inv.invNum||'').toLowerCase(); 
+        if (q && !n.includes(q) && !m.includes(q)) return; 
+        
+        let d = getEffectiveDate(inv); 
+        let dCreated = new Date(inv.timestamp); 
+        let dS = `${dCreated.getDate().toString().padStart(2,'0')}/${(dCreated.getMonth()+1).toString().padStart(2,'0')}/${dCreated.getFullYear()}`; 
+        
+        let monthKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        let monthLabel = `${monthNamesAll[d.getMonth()]} ${d.getFullYear()}`;
+
+        // --- LOGIKA CEK TUNGGAKAN > 3 HARI ---
+        let isOverdue = false;
+        let warningBadge = '';
+        if (!inv.paid) {
+            let diffDays = Math.floor((now - dCreated) / (1000 * 60 * 60 * 24));
+            if (diffDays > 3) {
+                isOverdue = true;
+                warningBadge = `<div class="badge-overdue" style="background:var(--red); color:#fff; font-size:9px; padding:2px 6px; border-radius:4px; font-weight:700; margin-top:5px; display:inline-block;">⚠️ TUNGGAKAN ${diffDays} HARI</div>`;
+            }
+        }
+
+        let pS = inv.paid && inv.paidDate ? `<div style="font-size:10px; color:var(--green); margin-top:4px;">Dibayar Tgl: ${new Date(inv.paidDate).toLocaleDateString('id-ID')}</div>` : ''; 
+        let chk = `<input type="checkbox" ${selectedInvoices.has(inv.id)?'checked':''} onchange="toggleInvoiceSelection(${inv.id}, this.checked)" style="width:16px;height:16px;" onclick="event.stopPropagation()">`; 
+        let btn = inv.paid ? `<button class="inv-btn unpay" onclick="toggleInvoiceStatus(${inv.id})">Batal Bayar</button>` : `<button class="inv-btn pay" onclick="toggleInvoiceStatus(${inv.id})">Tandai Bayar</button>`; 
+        let h = `<div class="inv-card"><button class="inv-del" onclick="deleteSavedInvoice(${inv.id})">✖</button><div class="inv-card-head">${chk}<div style="flex:1; cursor:pointer;" onclick="openInvDetailModal(${inv.id})"><div class="inv-cust" style="color:var(--accent);">${inv.customer||'-'}</div><div class="inv-date">Dibuat: ${dS} <span style="font-weight:bold">${inv.invNum||''}</span></div></div></div><div class="inv-stats"><span>Rp ${(inv.total||0).toLocaleString('id-ID')}</span><span>${inv.totalQty||0} Pcs</span></div><div style="display:flex;gap:8px">${btn}<button class="inv-btn" style="flex:0 0 40px;" onclick="openEditInvoice(${inv.id})">✏️</button></div>${pS}</div>`; 
+        
+// MODIFIKASI: Jika UNPAID (Belum Lunas), paksa dia masuk ke tab "Bulan Ini" agar terlihat terus sebelum dibayar lunas
+        if (!inv.paid || monthKey === currentMonthKey) {
+    if (inv.paid) currentPaid += h;
+    else currentUnpaid += h;
+} else {
+    if(!pastGroups[monthKey]) pastGroups[monthKey] = { label: monthLabel, paid: '', unpaid: '' };
+    if(inv.paid) pastGroups[monthKey].paid += h;
+    else pastGroups[monthKey].unpaid += h;
+        }
+    }); 
+
+    if(!currentUnpaid) uEl.innerHTML = '<div style="font-size:12px; color:var(--text3); text-align:center; padding:10px;">Bersih! Tidak ada tunggakan.</div>';
+    else uEl.innerHTML = currentUnpaid;
+
+    if(!currentPaid) pEl.innerHTML = '<div style="font-size:12px; color:var(--text3); text-align:center; padding:10px;">Belum ada pembayaran bulan ini.</div>';
+    else pEl.innerHTML = currentPaid;
+
+    let pastKeys = Object.keys(pastGroups).sort().reverse();
+    if(pastKeys.length === 0) pastCont.innerHTML = '<div style="font-size:12px; color:var(--text3); padding:10px;">Belum ada riwayat bulan lalu.</div>';
+    else {
+        pastKeys.forEach(k => {
+            let g = pastGroups[k];
+            let htmlFolder = `
+            <div class="folder-card">
+                <div class="folder-header" onclick="this.parentElement.classList.toggle('open'); let b = this.nextElementSibling; b.classList.toggle('active');">
+                    <span>📅 ${g.label}</span>
+                    <span class="folder-icon">▶</span>
+                </div>
+                <div class="folder-body">
+                    <div class="grid2" style="align-items:start;">
+                        <div style="background:#FFFDFD; border:1px solid var(--red-border); padding:10px; border-radius:6px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--red); margin-bottom:8px;">❌ BELUM BAYAR</div>
+                            <div style="display:flex; flex-direction:column; gap:4px;">${g.unpaid || '<span style="font-size:11px; color:var(--text3)">Kosong</span>'}</div>
+                        </div>
+                        <div style="background:#FDFFFD; border:1px solid var(--green-border); padding:10px; border-radius:6px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:8px;">✅ SUDAH BAYAR</div>
+                            <div style="display:flex; flex-direction:column; gap:4px;">${g.paid || '<span style="font-size:11px; color:var(--text3)">Kosong</span>'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            pastCont.innerHTML += htmlFolder;
+        });
+    }
+}
+
+function openInvDetailModal(id) { let inv = savedInvoices.find(i=>i.id===id); if(!inv) return; let d = new Date(inv.timestamp), dS = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; let a=0,b=0, tbl=`<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:10px"><tr style="background:var(--surface2)"><th style="padding:8px">SKU</th><th>QTY</th><th style="text-align:right">Harga</th><th style="text-align:right">Subtotal</th></tr>`; (inv.items||[]).forEach(it => { let prod = CATALOG.find(p=>p.sku===it.sku), c = prod?(prod.category||'A').toUpperCase():'A'; if(c==='B') b+=(it.qty||0); else a+=(it.qty||0); tbl+=`<tr style="border-bottom:1px dashed #eee"><td style="padding:8px;font-weight:600">${it.sku}</td><td style="text-align:center">${it.qty}</td><td style="text-align:right">Rp ${(it.price||0).toLocaleString('id-ID')}</td><td style="text-align:right;font-weight:700">Rp ${((it.qty||0)*(it.price||0)).toLocaleString('id-ID')}</td></tr>`; }); tbl+=`</table>`; let tL = inv.tier?inv.tier.charAt(0).toUpperCase()+inv.tier.slice(1):"-"; document.getElementById('inv-detail-body').innerHTML=`<div class="grid2" style="background:#fafafa;padding:12px;border-radius:8px;gap:12px;"><div><strong>Mitra:</strong><br>${inv.customer||'-'}</div><div><strong>INV:</strong><br>${inv.invNum||'-'}</div><div><strong>Wilayah:</strong><br>${inv.region==='jawa'?'Jawa':'Luar Jawa'}</div><div><strong>Tgl:</strong><br>${dS}</div><div><strong>Tier:</strong><br>${tL}</div><div><strong>Status:</strong><br>${inv.paid?'✅ Lunas':'❌ Belum'}</div></div><div style="max-height:250px;overflow-y:auto;border:1px solid #eee;border-radius:6px;margin-top:10px">${tbl}</div><div style="margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="background:var(--green-bg);padding:10px;border-radius:6px"><div style="font-size:11px">TOTAL QTY</div><strong style="font-size:18px;color:var(--green)">${inv.totalQty||0} Pcs</strong><div style="font-size:11px">Kat A: ${a} | Kat B: ${b}</div></div><div style="background:var(--accent-bg);padding:10px;border-radius:6px"><div style="font-size:11px">GRAND TOTAL</div><strong style="font-size:20px;color:var(--accent)">Rp ${(inv.total||0).toLocaleString('id-ID')}</strong></div></div>`; document.getElementById('inv-detail-modal').classList.add('active'); }
+function closeInvDetailModal() { document.getElementById('inv-detail-modal').classList.remove('active'); }
+
+// LOGIKA EDIT INVOICE (TANGGAL BAYAR)
+function openEditInvoice(id) { 
+    let inv = savedInvoices.find(i=>i.id===id); 
+    if(!inv) return; 
+    document.getElementById('edit-inv-id').value=inv.id; 
+    document.getElementById('edit-inv-cust').value=inv.customer||''; 
+    document.getElementById('edit-inv-region').value=inv.region||'jawa'; 
+    document.getElementById('edit-inv-tier').value=inv.tier||''; 
+    
+    let dateWrap = document.getElementById('edit-inv-paid-date-wrap');
+    let dateInput = document.getElementById('edit-inv-paid-date');
+    if (inv.paid) {
+        dateWrap.style.display = 'flex';
+        let pd = inv.paidDate ? new Date(inv.paidDate) : new Date();
+        dateInput.value = getFormattedDate(pd.getFullYear(), pd.getMonth(), pd.getDate());
+    } else {
+        dateWrap.style.display = 'none';
+        dateInput.value = '';
+    }
+
+    let ic=document.getElementById('edit-inv-items'); ic.innerHTML=''; 
+    if(inv.items&&inv.items.length) inv.items.forEach(it=>renderEditInvItemRow(it)); 
+    else renderEditInvItemRow(); 
+    document.getElementById('inv-edit-modal').classList.add('active'); 
+}
+function closeInvEditModal() { document.getElementById('inv-edit-modal').classList.remove('active'); }
+function renderEditInvItemRow(it={sku:'',qty:1,price:0}) { let r=document.createElement('div'); r.className='edit-row-grid'; r.innerHTML=`<div class="ei-sku-wrap" style="position:relative;"><input type="text" class="ei-sku" value="${it.sku||''}" oninput="showEditSuggest(this)" onfocus="showEditSuggest(this)" onblur="setTimeout(closeAllEditSuggests,200)"></div><input type="number" class="ei-qty" value="${it.qty||1}"><input type="number" class="ei-price" value="${it.price!==undefined?it.price:0}"><button class="del-btn" style="color:var(--red);" onclick="this.parentElement.remove()">✖</button>`; document.getElementById('edit-inv-items').appendChild(r); }
+function addEditInvItem() { renderEditInvItemRow(); }
+function showEditSuggest(el) { closeAllEditSuggests(); let q=el.value.trim(), res=searchCatalog(q); if(!res.length) return; let wr=el.parentElement, bx=document.createElement('div'); bx.className='suggest-box'; res.forEach(p=>{ let d=document.createElement('div'); d.className='suggest-item'; let t=document.getElementById('edit-inv-tier').value||'gold', pr=p[t]!==undefined?p[t]:(p.gold||p.retail||0); d.innerHTML=`<span>${p.name}</span><span class="suggest-price">Rp ${pr.toLocaleString('id-ID')}</span>`; d.onmousedown=(e)=>{ e.preventDefault(); el.value=p.sku; wr.parentElement.querySelector('.ei-price').value=pr; closeAllEditSuggests(); }; bx.appendChild(d); }); wr.appendChild(bx); }
+function closeAllEditSuggests() { document.querySelectorAll('.ei-sku-wrap .suggest-box').forEach(b=>b.remove()); }
+function updateEditPricesByTier() { let t=document.getElementById('edit-inv-tier').value; if(!t) return; document.querySelectorAll('#edit-inv-items > .edit-row-grid').forEach(r=>{ let s=r.querySelector('.ei-sku').value.trim(); if(s) { let p=CATALOG.find(x=>x.sku===s); if(p&&p[t]) r.querySelector('.ei-price').value=p[t]; } }); }
+
+function saveEditedInvoice() { 
+    let id=parseInt(document.getElementById('edit-inv-id').value), i=savedInvoices.findIndex(x=>x.id===id); 
+    if(i===-1) return; 
+    let items=[], tO=0, tQ=0; 
+    document.querySelectorAll('#edit-inv-items > .edit-row-grid').forEach(r=>{ 
+        let s=r.querySelector('.ei-sku').value.trim(), q=parseInt(r.querySelector('.ei-qty').value)||0, p=parseFloat(r.querySelector('.ei-price').value)||0; 
+        if(s&&q>0) { items.push({sku:s,qty:q,price:p}); tO+=(q*p); tQ+=q; } 
+    }); 
+    savedInvoices[i].customer=document.getElementById('edit-inv-cust').value; 
+    savedInvoices[i].region=document.getElementById('edit-inv-region').value; 
+    if(document.getElementById('edit-inv-tier').value) savedInvoices[i].tier=document.getElementById('edit-inv-tier').value; 
+    savedInvoices[i].items=items; 
+    savedInvoices[i].total=tO; 
+    savedInvoices[i].totalQty=tQ; 
+
+    // Simpan Tanggal Dibayarkan Custom jika ada
+    if(savedInvoices[i].paid) {
+        let pdVal = document.getElementById('edit-inv-paid-date').value;
+        if(pdVal) {
+            let parts = pdVal.split('-');
+            savedInvoices[i].paidDate = new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0).getTime();
+        }
+    }
+
+    localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
+    saveToCloud().then(() => {
+        closeInvEditModal(); toast('Invoice diperbarui!'); 
+        renderInvoiceList(); updateDashboard(); 
+    });
+}
+
+function searchCalendar() { let q=document.getElementById('cal-search').value.toLowerCase().trim(), b=document.getElementById('cal-search-results'); if(!q) { b.style.display='none'; return; } let m=todos.filter(t=>t.title.toLowerCase().includes(q)||(t.notes&&t.notes.toLowerCase().includes(q))); if(m.length===0) b.innerHTML='<div style="padding:10px;text-align:center;">Tidak ditemukan</div>'; else b.innerHTML=m.map(t=>{ let d=new Date(t.date), dS=`${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`; return `<div style="padding:10px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="document.getElementById('cal-search').value=''; document.getElementById('cal-search-results').style.display='none'; openEditTodo('${t.id}')"><div style="font-weight:700;">${t.title}</div><div style="font-size:10px;color:var(--text3);">📅 ${dS}</div></div>`; }).join(''); b.style.display='block'; }
+document.addEventListener('click', e => { if(!e.target.closest('#cal-search') && !e.target.closest('#cal-search-results')) { let b=document.getElementById('cal-search-results'); if(b) b.style.display='none'; } });
+let currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
+function getFormattedDate(y,m,d) { let x=new Date(y,m,d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function renderCalendar() { document.getElementById('cal-month-year').textContent=`${monthNamesAll[currentMonth]} ${currentYear}`; let fd=new Date(currentYear,currentMonth,1).getDay(), dim=new Date(currentYear,currentMonth+1,0).getDate(), gr=document.getElementById('cal-grid'); gr.innerHTML=''; let td=getFormattedDate(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()); for(let i=0;i<fd;i++) gr.innerHTML+=`<div class="day-full empty"></div>`; for(let i=1;i<=dim;i++) { let dS=getFormattedDate(currentYear,currentMonth,i), isT=(dS===td)?'today':'', dt=todos.filter(t=>t.date===dS).sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59')); let pH=dt.map(t=>`<div class="task-pill ${t.color} ${t.done?'done':''}" onclick="event.stopPropagation(); openEditTodo('${t.id}')">${t.time?`[${t.time}] `:''}${t.title}</div>`).join(''); gr.innerHTML+=`<div class="day-full ${isT}" onclick="openTodoModal('${dS}')"><div class="day-num">${i}</div>${pH}</div>`; } }
+function changeMonth(d) { currentMonth+=d; if(currentMonth>11){currentMonth=0;currentYear++;} else if(currentMonth<0){currentMonth=11;currentYear--;} renderCalendar(); }
+function goToToday() { let d=new Date(); currentMonth=d.getMonth(); currentYear=d.getFullYear(); renderCalendar(); }
+function openTodoModal(dS=null) { if(!dS) dS=getFormattedDate(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()); document.getElementById('todo-id').value=''; document.getElementById('todo-date').value=dS; document.getElementById('todo-time').value=''; document.getElementById('todo-title').value=''; document.getElementById('todo-notes').value=''; document.getElementById('btn-delete-todo').style.display='none'; document.getElementById('btn-done-todo').style.display='none'; document.getElementById('todo-modal').classList.add('active'); }
+function openEditTodo(id) { let t=todos.find(x=>x.id===id); if(!t) return; document.getElementById('todo-id').value=t.id; document.getElementById('todo-date').value=t.date; document.getElementById('todo-time').value=t.time; document.getElementById('todo-title').value=t.title; document.getElementById('todo-notes').value=t.notes; document.getElementById('btn-delete-todo').style.display='block'; let b=document.getElementById('btn-done-todo'); b.style.display='block'; b.textContent=t.done?'Batal Selesai':'Tandai Selesai'; document.getElementById('todo-modal').classList.add('active'); }
+function closeTodoModal() { document.getElementById('todo-modal').classList.remove('active'); }
+function saveTodo() { let id=document.getElementById('todo-id').value, d=document.getElementById('todo-date').value, t=document.getElementById('todo-time').value, ti=document.getElementById('todo-title').value.trim(), n=document.getElementById('todo-notes').value.trim(); if(!d||!ti) return toast('Isi Tanggal & Judul!',true); let p=`[${currentUser.username}] `; if(!ti.startsWith(p)&&!id) ti=p+ti; if(id){ let i=todos.findIndex(x=>x.id===id); if(i!==-1) todos[i]={...todos[i],date:d,time:t,title:ti,notes:n}; } else { todos.push({id:'T_'+Date.now(),date:d,time:t,title:ti,notes:n,color:currentUser.color,done:false}); } localStorage.setItem('nvmee_todos',JSON.stringify(todos)); saveToCloud(); toast('Jadwal disimpan!'); closeTodoModal(); renderCalendar(); updateDashboard(); }
+function deleteTodo() { let id=document.getElementById('todo-id').value; if(confirm('Hapus?')) { todos=todos.filter(x=>x.id!==id); localStorage.setItem('nvmee_todos',JSON.stringify(todos)); saveToCloud(); toast('Dihapus!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
+function toggleDoneTodo() { let id=document.getElementById('todo-id').value, i=todos.findIndex(x=>x.id===id); if(i!==-1) { todos[i].done=!todos[i].done; localStorage.setItem('nvmee_todos',JSON.stringify(todos)); saveToCloud(); toast('Diperbarui!'); closeTodoModal(); renderCalendar(); updateDashboard(); } }
+function markTodoDoneById(id) { let i=todos.findIndex(x=>x.id===id); if(i!==-1){ todos[i].done=true; localStorage.setItem('nvmee_todos',JSON.stringify(todos)); saveToCloud(); renderCalendar(); updateDashboard(); } }
+function deleteTodoById(id) { if(confirm('Hapus jadwal?')){ todos=todos.filter(x=>x.id!==id); localStorage.setItem('nvmee_todos',JSON.stringify(todos)); saveToCloud(); renderCalendar(); updateDashboard(); } }
+
+var MULTI_COLOR=[{keys:['taurus'],variants:[{sku:'NV-HR-TAURUSV2-MM'},{sku:'NV-HR-TAURUSV2-HJ'}]},{keys:['libra'],variants:[{sku:'NV-HR-LIBRAV2-MM'},{sku:'NV-HR-LIBRAV2-U'}]},{keys:['saturn'],variants:[{sku:'NV-HR-SATURN-H'},{sku:'NV-HR-SATURN-U'}]},{keys:['luna'],variants:[{sku:'NV-DRY-LUNA-KR'},{sku:'NV-DRY-LUNA-U'},{sku:'NV-DRY-LUNA-B'},{sku:'NV-DRY-LUNA-HJ'}]},{keys:['mina'],variants:[{sku:'NV-DRY-MINA-S'},{sku:'NV-DRY-MINA-MM'},{sku:'NV-DRY-MINA-KR'}]},{keys:['sisir besar','detangling'],variants:[{sku:'NV-SIR-BIGKTK-MM'},{sku:'NV-SIR-BIGKTK-U'},{sku:'NV-SIR-BIGKTK-H'},{sku:'NV-SIR-BIGKTK-TC'}]},{keys:['heatless'],variants:[{sku:'NV-JPT-HEATLS2-TC'},{sku:'NV-JPT-HEATLS2-MM'},{sku:'NV-JPT-HEATLS2-U'}]},{keys:['roll big'],variants:[{sku:'NV-ROLL-BIG-MM'},{sku:'NV-ROLL-BIG-H'}]},{keys:['sisir keramas','grigi'],variants:[{sku:'NV-SKM-GRIGI-MM'},{sku:'NV-SKM-GRIGI-P'}]},{keys:['scalp love'],variants:[{sku:'NV-SKM-LOVE-MM'},{sku:'NV-SKM-LOVE-PC'}]},{keys:['pouch puffy'],variants:[{sku:'NV-POUCH-PUFFY-U'},{sku:'NV-POUCH-PUFFY-MM'}]},{keys:['roll jepit'],variants:[{sku:'NV-ROLL-JPT-MM'},{sku:'NV-ROLL-JPT-U'},{sku:'NV-ROLL-JPT-MGT'}]}];
+var COLOR_WORDS=['pink','merah muda','ungu','lilac','purple','hijau','green','hj','hitam','black','kream','cream','oat','kr','biru','sky','blue','silver','lime','putih','white','peach','tosca','magenta'];
+var IGNORE_WORDS=['tester','standee','acrylic','akrilik','bonus','free','gratis','hadiah','sample'];
+var COLOR_MAP={'pink':'MM','merah muda':'MM','ungu':'U','lilac':'U','purple':'U','hijau':'HJ','green':'HJ','lime':'HJ','hitam':'H','black':'H','kream':'KR','cream':'KR','oat':'KR','biru':'B','sky':'B','blue':'B','silver':'S','putih':'P','white':'P','peach':'PC','tosca':'TC','magenta':'MGT','mgt':'MGT'};
+var invoices=[]; var idCounter=1000;
+function getPrice(p,t) { return p[t||'gold']||p.gold||0; } function makeItem() { return {sku:'',qty:0,price:'',ref:null,manual:false}; } function newInvoice(d) { return {id:++idCounter,num:'',numPrefix:'GRO/NVM/'+new Date().getFullYear()+'/',name:'',tier:null,diffCustomer:d||false,custReceiver:'',custName:'',custCode:'',custPhone:'',custAddr:'',custCity:'',custProv:'',custEksp:'',custNpwp:'',custNpwpName:'',items:[makeItem()]}; } function addInvoice(d) { invoices.push(newInvoice(d)); renderAll(); } function removeInvoice(id) { invoices=invoices.filter(i=>i.id!==id); renderAll(); } function addItem(id) { let i=invoices.find(x=>x.id===id); if(i) { i.items.push(makeItem()); renderAll(); } } function removeItem(id,idx) { let i=invoices.find(x=>x.id===id); if(i&&i.items.length>1) { i.items.splice(idx,1); renderAll(); } } function setInvField(id,f,v) { let i=invoices.find(x=>x.id===id); if(i) { i[f]=v; updateSummary(); } } function setItemSku(id,idx,v) { let i=invoices.find(x=>x.id===id); if(!i) return; i.items[idx].sku=v; i.items[idx].ref=null; showSuggest(id,idx,v); } function setItemQty(id,idx,v) { let i=invoices.find(x=>x.id===id); if(i) { i.items[idx].qty=parseFloat(v)||0; renderAll(); } } function setItemPrice(id,idx,v) { let i=invoices.find(x=>x.id===id); if(i) { i.items[idx].price=parseFloat(v)||0; renderAll(); } } function setInvTier(id,t) { let i=invoices.find(x=>x.id===id); if(!i) return; i.tier=t; i.items.forEach(it=>{ if(it.ref){ it.price=getPrice(it.ref,t); it.manual=false; } }); renderAll(); }
+function liveSubtotal(id,idx) { let q=document.getElementById(`qty-${id}-${idx}`), p=document.getElementById(`price-${id}-${idx}`), s=document.getElementById(`sub-${id}-${idx}`); if(q&&p&&s) s.innerHTML=Math.round((parseFloat(q.value)||0)*(parseFloat(p.value)||0)).toLocaleString('id-ID'); }
+function searchCatalog(q) { if(!q||q.length<2) return []; let ql=q.toLowerCase(); return CATALOG.map(p=>{ let s=0, nl=p.name.toLowerCase(); if(nl.includes(ql)) s+=12; if(p.sku.toLowerCase().includes(ql)) s+=8; if(p.keys) { p.keys.forEach(k=>{ if(ql.includes(k)||k.includes(ql)) s+=k.length>4?6:3; }); ql.split(/\s+/).forEach(w=>{ if(w.length<2) return; if(nl.includes(w)) s+=5; p.keys.forEach(k=>{ if(k===w) s+=6; else if(k.includes(w)||w.includes(k)) s+=2; }); }); } return Object.assign({},p,{score:s}); }).filter(p=>p.score>0).sort((a,b)=>b.score-a.score).slice(0,7); }
+function showSuggest(id,idx,q) { closeAllSuggest(); let res=searchCatalog(q); if(!res.length) return; let wr=document.getElementById(`sw-${id}-${idx}`); if(!wr) return; let bx=document.createElement('div'); bx.className='suggest-box'; res.forEach(p=>{ let d=document.createElement('div'); d.className='suggest-item'; let i=invoices.find(x=>x.id===id), pr=getPrice(p,i?i.tier:null); d.innerHTML=`<span>${p.name}</span><span class="suggest-price">Rp ${pr.toLocaleString('id-ID')}</span>`; d.onmousedown=(e)=>{ e.preventDefault(); pickSuggest(id,idx,p); }; bx.appendChild(d); }); wr.appendChild(bx); }
+function pickSuggest(id,idx,p) { let i=invoices.find(x=>x.id===id); if(!i) return; i.items[idx].sku=p.sku; i.items[idx].price=getPrice(p,i.tier); i.items[idx].ref=p; i.items[idx].manual=false; closeAllSuggest(); renderAll(); }
+function closeAllSuggest() { document.querySelectorAll('.suggest-box').forEach(b=>b.remove()); }
+document.addEventListener('click', e => { if(!e.target.closest('.sku-wrap')) closeAllSuggest(); });
+function calcTotal(items) { return items.reduce((s,it)=>s+((+it.qty||0)*(+it.price||0)),0); } function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tierBtn(id,t,l,i) { let a=i.tier===t, bgM={silver:'#FFFFFF',gold:'#FFE066',rosegold:'linear-gradient(135deg,#FFD6E7,#FFB6C1,#DDA0DD)',platinum:'#E8BFFF'}, bcM={silver:'#9090A0',gold:'#C8A000',rosegold:'#C9706A',platinum:'#A050D0'}, tcM={silver:'#303050',gold:'#5C3A00',rosegold:'#7A2040',platinum:'#4A1A7A'}, bg=a?(bgM[t]||'#eee'):'var(--surface2)', bc=a?(bcM[t]||'#aaa'):'var(--border)', tc=a?(tcM[t]||'#333'):'var(--text3)', fw=a?'700':'500'; return `<button onclick="setInvTier(${id},'${t}')" style="padding:6px 12px;border-radius:6px;border:1.5px solid ${bc};background:${bg};color:${tc};cursor:pointer;font-size:11px;font-weight:${fw}">${l}</button>`; }
+function renderExtraCustomerCards() { let c=document.getElementById('extra-customer-cards'); if(!c) return; let h=''; invoices.forEach((i,idx)=>{ if(!i.diffCustomer) return; let n=idx+1; h+=`<div class="card" style="border:1.5px dashed #FF85B0"><div class="card-title" style="color:#C0306A">Nama Penerima ${n}</div><div class="field"><input type="text" value="${esc(i.custReceiver)}" onchange="setInvField(${i.id},'custReceiver',this.value)"></div><div class="card-title" style="color:#C0306A; margin-top:10px;">Info Customer ${n}</div><div class="grid2">`; [['Nama Customer','custName',''],['Cust Code','custCode',''],['No Telp','custPhone',''],['Ekspedisi','custEksp','']].forEach(r=>{ h+=`<div class="field"><label>${r[0]}</label><input type="text" value="${esc(i[r[1]])}" onchange="setInvField(${i.id},'${r[1]}',this.value)"></div>`; }); h+=`<div class="field full"><label>Alamat Penerima</label><input type="text" value="${esc(i.custAddr)}" onchange="setInvField(${i.id},'custAddr',this.value)"></div>`; [['Kota','custCity',''],['Prov','custProv',''],['NPWP','custNpwp',''],['Nama NPWP','custNpwpName','']].forEach(r=>{ h+=`<div class="field"><label>${r[0]}</label><input type="text" value="${esc(i[r[1]])}" onchange="setInvField(${i.id},'${r[1]}',this.value)"></div>`; }); h+=`</div></div>`; }); c.innerHTML=h; }
+function renderInvoices() { let c=document.getElementById('invoices-container'); if(!invoices.length) { c.innerHTML='<p style="text-align:center;color:var(--text3);padding:1rem">Kosong.</p>'; return; } c.innerHTML=invoices.map(i=>{ let px=i.numPrefix||`GRO/NVM/${new Date().getFullYear()}/`; let iH=`<div class="invoice-head"><div class="invoice-head-left"><span style="font-size:10px;font-weight:700;">INV</span><span style="font-size:12px;font-family:'DM Mono',monospace;font-weight:700;">${px}</span><input class="invoice-num-input" value="${esc(i.num)}" onchange="setInvField(${i.id},'num',this.value)"></div><div style="display:flex;gap:6px">${tierBtn(i.id,'silver','Silver',i)}${tierBtn(i.id,'gold','★ Gold',i)}${tierBtn(i.id,'rosegold','✦ Rose Gold',i)}${tierBtn(i.id,'platinum','◆ Platinum',i)}${invoices.length>1?`<button class="del-btn" style="color:var(--red);" onclick="removeInvoice(${i.id})">&#10005;</button>`:''}</div></div>`; let rs=i.items.map((it,idx)=>{ return `<div class="order-row-grid"><div class="sku-wrap ${it.ref?'sku-matched':''}" id="sw-${i.id}-${idx}"><input type="text" value="${esc(it.sku)}" oninput="setItemSku(${i.id},${idx},this.value)" onfocus="showSuggest(${i.id},${idx},this.value)" onblur="setTimeout(closeAllSuggest,160)"></div><input type="number" id="qty-${i.id}-${idx}" value="${esc(it.qty)}" min="0" onchange="setItemQty(${i.id},${idx},this.value)" onkeyup="liveSubtotal(${i.id},${idx})" style="text-align:center"><input type="number" id="price-${i.id}-${idx}" value="${esc(it.price)}" onchange="setItemPrice(${i.id},${idx},this.value)" onkeyup="liveSubtotal(${i.id},${idx})"><div id="sub-${i.id}-${idx}" style="display:flex;align-items:center;justify-content:flex-end;font-family:'DM Mono',monospace;font-weight:600">${Math.round((+it.qty||0)*(+it.price||0)).toLocaleString('id-ID')}</div><button class="del-btn" onclick="removeItem(${i.id},${idx})">&#10005;</button></div>`; }).join(''); return `<div class="invoice-block">${iH}<div class="invoice-body"><div class="order-cols"><span class="order-col-label">SKU</span><span class="order-col-label" style="text-align:center">QTY</span><span class="order-col-label">Harga</span><span class="order-col-label" style="text-align:right">Subtotal</span><span></span></div>${rs}<button class="add-product-btn" onclick="addItem(${i.id})">+ produk</button></div><div class="invoice-foot">Total: <strong>Rp ${Math.round(calcTotal(i.items)).toLocaleString('id-ID')}</strong></div></div>`; }).join(''); }
+function renderAll() { renderExtraCustomerCards(); renderInvoices(); updateSummary(); }
+function updateSummary() {
+    if (!invoices.length) { document.getElementById('summary-grid').style.display = 'none'; return; }
+    document.getElementById('summary-grid').style.display = 'grid';
+
+    let tI = 0, g = 0;
+    let qtyA = 0, qtyB = 0, rpA = 0, rpB = 0;
+
+    invoices.forEach(i => {
+        i.items.forEach(it => {
+            let qty = +it.qty || 0, price = +it.price || 0, subtotal = qty * price;
+            tI += qty;
+            g += subtotal;
+
+            let prod = CATALOG.find(p => p.sku === it.sku);
+            let cat = prod ? (prod.category || 'A').toUpperCase().trim() : 'A';
+            if (cat === 'B') { qtyB += qty; rpB += subtotal; }
+            else { qtyA += qty; rpA += subtotal; }
+        });
+    });
+
+    document.getElementById('sum-inv').textContent = invoices.length;
+    document.getElementById('sum-items').textContent = tI;
+    document.getElementById('sum-total').textContent = 'Rp ' + Math.round(g).toLocaleString('id-ID');
+
+    document.getElementById('sum-items-breakdown').textContent = `Kat A: ${qtyA} | Kat B: ${qtyB}`;
+    document.getElementById('sum-total-breakdown').textContent = `Kat A: Rp ${Math.round(rpA).toLocaleString('id-ID')} | Kat B: Rp ${Math.round(rpB).toLocaleString('id-ID')}`;
+}
+function splitByVariants(vs,q,t) { let n=vs.length, b=Math.floor(q/n), s=q%n, r=[]; for(let i=0;i<n;i++){ let c=b+(s>0?1:0); s--; if(c<=0)continue; let p=CATALOG.find(x=>x.sku===vs[i].sku); if(p) r.push({prod:p,qty:c}); } return r; }
+function shouldIgnoreLine(l) { let lw=l.toLowerCase(); if(!IGNORE_WORDS.some(w=>lw.includes(w))) return false; return !CATALOG.some(p=>p.keys&&p.keys.some(k=>k.length>3&&lw.includes(k))); }
+function extractQty(l) { let m=l.match(/\((\d+)\s*(?:pc|pcs|buah|unit)?\)/i); if(m) return parseInt(m[1]); m=l.match(/[@=x]\s*(\d+)/i); if(m) return parseInt(m[1]); m=l.match(/(\d+)\s*(?:pc|pcs|buah|unit)/i); if(m) return parseInt(m[1]); m=l.match(/(\d+)\s*$/); if(m) return parseInt(m[1]); return 1; }
+function findBestProduct(lL) { let bM=null, bS=0, ws=lL.replace(/[^\w\s]/gi,'').split(/\s+/).filter(w=>w.length>1); CATALOG.forEach(p=>{ let s=0, mc=0; if(lL.includes(p.sku.toLowerCase())){ s+=50; mc+=2; } if(p.keys){ p.keys.forEach(k=>{ let kl=k.toLowerCase(); if(lL.includes(kl)){ s+=(kl.length>5?12:6); mc++; } }); } ws.forEach(w=>{ if(p.name.toLowerCase().includes(w)){ s+=3; mc++; } }); let hC=false; Object.keys(COLOR_MAP).forEach(cw=>{ if(lL.includes(cw)&&p.sku.endsWith('-'+COLOR_MAP[cw])){ s+=15; mc+=2; hC=true; } }); if(mc>=(hC?2:1)) s+=20; if(s>bS&&s>=10){ bS=s; bM=p; } }); return bM; }
+function parseWA() { let t=document.getElementById('wa-input').value.trim(); if(!t) return toast('Paste teks dulu!',true); let ls=t.split('\n').map(l=>l.replace(/^[\s~+\-*\u2022\u25aa\u{1F525}\u{1F4E6}]+/u,'').trim()).filter(l=>l.length>1), res=[], cP=null; for(let i=0;i<ls.length;i++){ let l=ls[i], lL=l.toLowerCase(); if(shouldIgnoreLine(l)) continue; let q=extractQty(l), isC=false; if(cP){ let hC=Object.keys(COLOR_MAP).some(w=>lL.includes(w)), hP=CATALOG.some(p=>p.sku!==cP&&p.keys&&p.keys.some(k=>k.length>4&&lL.includes(k.toLowerCase()))); if(hC&&!hP&&l.length<35) isC=true; } if(isC&&q>0){ let b=cP.replace(/-[^-]+$/,''), f=null; Object.keys(COLOR_MAP).forEach(w=>{ if(f)return; if(lL.includes(w)){ let c=CATALOG.find(p=>p.sku.startsWith(b)&&p.sku.endsWith('-'+COLOR_MAP[w])); if(c) f=c; } }); if(f){ res.push({prod:f,qty:q}); continue; } } let mM=null, hCL=Object.keys(COLOR_MAP).some(w=>lL.includes(w)); if(!hCL){ MULTI_COLOR.forEach(mc=>{ if(mM)return; if(mc.keys.some(k=>lL.includes(k.toLowerCase()))) mM=mc; }); } if(mM&&q>0){ let i0=invoices[invoices.length-1]; splitByVariants(mM.variants,q,i0?i0.tier:null).forEach(s=>res.push(s)); cP=mM.variants[0].sku; continue; } let p=findBestProduct(lL); if(p&&q>0){ res.push({prod:p,qty:q}); cP=p.sku; } else if(p) cP=p.sku; else { let pr=null; CATALOG.forEach(x=>{ if(pr)return; let sc=0; if(x.keys) x.keys.forEach(k=>{ if(k.length>3&&lL.includes(k.toLowerCase())) sc+=5; }); if(sc>0) pr=x; }); if(pr) cP=pr.sku; } } if(!res.length){ document.getElementById('wa-result').innerHTML='<span style="color:#C0392B">❌ Gagal mendeteksi.</span>'; return; } let i=invoices[invoices.length-1]; if(!i){ addInvoice(false); i=invoices[0]; } i.items=i.items.filter(x=>x.sku!==''); res.forEach(r=>{ i.items.push({sku:r.prod.sku,qty:r.qty,price:getPrice(r.prod,i.tier),ref:r.prod,manual:false}); }); renderAll(); document.getElementById('wa-input').value=''; document.getElementById('wa-result').innerHTML=`<span style="color:#2E7D32">✓ ${res.length} item terekstrak!</span>`; setTimeout(()=>document.getElementById('wa-result').innerHTML='',3000); }
+function getVal(id) { let e=document.getElementById(id); return e?e.value:''; }
+function generateExcel(silent) { let n=getVal('cust-name'), c=getVal('cust-code'); if(!n||!c) return toast('Isi Nama & Code!',true); if(!invoices.length) return toast('Tambah invoice!',true); let p=getVal('cust-phone'), a=getVal('cust-addr'), ci=getVal('cust-city'), pr=getVal('cust-prov'), e=getVal('cust-eksp'), np=getVal('cust-npwp'), nn=getVal('cust-npwp-name'), rc=getVal('cust-name'), hs=['Warehouse','Marketplace','Store','Customer Code','Invoice','Ekspedisi','Resi / AWB','Waktu Pembayaran','Batas Waktu Pembayaran','Nama Penerima','Nama Akun','SKU','QTY','Satuan Harga','Voucher','Courrier','Pajak','total Berat Barang','Catatan dari Pembeli','Alamat Penerima','No. Telp','Kota','Provinsi','No NPWP','Nama NPWP','Alamat NPWP','Auto'], rs=[hs], aT=0, aQ=0, aI=[]; invoices.forEach(i=>{ let iC=(i.diffCustomer&&i.custCode)?i.custCode:c, iN=(i.diffCustomer&&i.custName)?i.custName:n, iR=(i.diffCustomer&&i.custReceiver)?i.custReceiver:(rc||n), iP=(i.diffCustomer&&i.custPhone)?i.custPhone:p, iA=(i.diffCustomer&&i.custAddr)?i.custAddr:a, iCi=(i.diffCustomer&&i.custCity)?i.custCity:ci, iPr=(i.diffCustomer&&i.custProv)?i.custProv:pr, iE=(i.diffCustomer&&i.custEksp)?i.custEksp:e, iNp=(i.diffCustomer&&i.custNpwp)?i.custNpwp:np, iNn=(i.diffCustomer&&i.custNpwpName)?i.custNpwpName:nn; i.items.forEach(it=>{ if(!it.sku)return; aT+=(+it.qty||0)*(+it.price||0); aQ+=(+it.qty||0); aI.push({sku:it.sku,qty:it.qty,price:it.price||0}); let fN=(i.numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+i.num; rs.push(['GII-BOX','Non Marketplace','GRO-NVM',iC,fN,iE,fN,'','',iR,iN,it.sku,+it.qty||1,+it.price||0,0,'','P','500 gr','',iA,iP,iCi,iPr,iNp,iNn,'','']); }); }); if(rs.length<=1) return toast('Tidak ada produk!',true); let sR=getVal('cust-region'), gN=(invoices[0].numPrefix||`GRO/NVM/${new Date().getFullYear()}/`)+invoices[0].num; savedInvoices.push({id:Date.now(),invNum:gN,customer:n,total:aT,totalQty:aQ,items:aI,timestamp:Date.now(),paid:false,paidDate:null,region:sR}); localStorage.setItem('nvmee_saved_invoices',JSON.stringify(savedInvoices)); saveToCloud().then(()=>{ updateDashboard(); if(document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); if(document.getElementById('view-report').classList.contains('active')) renderReportList(); }); let ws=XLSX.utils.aoa_to_sheet(rs), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Worksheet'); let fn=`SO_${n.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`; XLSX.writeFile(wb,fn); if(!silent) toast('✓ File SO didownload & masuk Dashboard!'); return true; }
+
+// ==========================================
+// IMPORT EXCEL DENGAN SISTEM ANTREAN
+// ==========================================
+function handleExcelImport(event) { 
+    if (isSyncing) return toast('Sedang menyinkronkan data, harap tunggu sebentar.', true);
+    const file = event.target.files[0]; 
+    if (!file) return; 
+    const reader = new FileReader(); 
+    reader.onload = function(e) { 
+        const data = new Uint8Array(e.target.result); 
+        const workbook = XLSX.read(data, {type: 'array'}); 
+        const firstSheetName = workbook.SheetNames[0]; 
+        const worksheet = workbook.Sheets[firstSheetName]; 
+        const json = XLSX.utils.sheet_to_json(worksheet, {raw: false}); 
+        processExcelData(json); 
+        event.target.value = ''; 
+    }; 
+    reader.readAsArrayBuffer(file); 
+}
+
+function processExcelData(data) { 
+    if (!data || data.length === 0) return toast("File kosong atau tidak valid", true); 
+    
+    // Tampilkan loading antrean
+    showLoader("Mengompresi & Menyimpan ke Cloud...");
+    
+    let grouped = {}; 
+    let jawaKeywords = ["jawa", "jakarta", "dki", "banten", "jabar", "jateng", "jatim", "diy", "yogyakarta", "jogja", "bandung", "surabaya", "semarang", "malang", "bogor", "bekasi", "depok", "tangerang", "cirebon", "surakarta", "solo", "kediri", "madiun", "purwokerto", "tegal"]; 
+    
+    const getField = (row, fieldNames) => { 
+        let keys = Object.keys(row); 
+        for(let fn of fieldNames) { 
+            let found = keys.find(k => k.toLowerCase().includes(fn.toLowerCase())); 
+            if(found) return row[found]; 
+        } 
+        return undefined; 
+    }; 
+    
+    for(let i = 0; i < data.length; i++) { 
+        let row = data[i]; 
+        let rawInvNo = getField(row, ["invoice", "no invoice"]); 
+        if (!rawInvNo) continue; 
+        let invNo = String(rawInvNo).replace(/^'/, '').trim(); 
+        let dateStr = getField(row, ["created at", "date", "tanggal"]) || ""; 
+        let sku = String(getField(row, ["sku"]) || "").trim(); 
+        let qty = parseInt(getField(row, ["qty", "quantity"])) || 0; 
+        let price = parseFloat(String(getField(row, ["price", "satuan harga", "sale price"])).replace(/,/g, '')) || 0; 
+        let grandTotal = parseFloat(String(getField(row, ["grand total", "total sales", "total invoice"])).replace(/,/g, '')) || 0; 
+        let cust = String(getField(row, ["customer", "nama penerima", "account name"]) || "Unknown").trim(); 
+        let addr = String(getField(row, ["address", "alamat"]) || "").toLowerCase(); 
+        
+        if(!sku || qty === 0) continue; 
+        
+        if (!grouped[invNo]) { 
+            let region = "luar_jawa"; 
+            if (jawaKeywords.some(kw => addr.includes(kw))) { region = "jawa"; } 
+            let ts = Date.now() + i; 
+            if (dateStr) { 
+                let ds = String(dateStr).split(" ")[0]; 
+                if (ds.includes("-")) { 
+                    let parts = ds.split("-"); 
+                    if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } 
+                    else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } 
+                } else if (ds.includes("/")) { 
+                    let parts = ds.split("/"); 
+                    if(parts.length === 3 && parts[2].length === 4) { ts = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`).getTime(); } 
+                    else if (parts.length === 3 && parts[0].length === 4) { ts = new Date(`${parts[0]}-${parts[1]}-${parts[2]}T12:00:00`).getTime(); } 
+                } else { 
+                    let parsed = Date.parse(dateStr); 
+                    if(!isNaN(parsed)) ts = parsed; 
+                } 
+            } 
+            grouped[invNo] = { id: Date.now() + Math.floor(Math.random()*1000) + i, invNum: invNo, customer: cust, region: region, timestamp: ts, paid: false, paidDate: null, items: [], total: grandTotal, totalQty: 0 }; 
+        } 
+        grouped[invNo].items.push({ sku: sku, qty: qty, price: price }); 
+        grouped[invNo].totalQty += qty; 
+        if (grandTotal === 0) { grouped[invNo].total += (qty * price); } 
+    } 
+    
+    let newInvoicesCount = 0; 
+    Object.values(grouped).forEach(inv => { 
+        let exists = savedInvoices.find(s => s.invNum === inv.invNum); 
+        if(!exists) { savedInvoices.push(inv); newInvoicesCount++; } 
+    }); 
+    
+    localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
+    
+    // Panggil cloud setelah memproses data
+    saveToCloud().then(() => {
+        updateDashboard(); 
+        if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); 
+        if (document.getElementById('view-report').classList.contains('active')) renderReportList(); 
+        
+        hideLoader();
+        if(newInvoicesCount > 0) { 
+            toast(`Berhasil import ${newInvoicesCount} invoice baru! ✅`); 
+        } else { 
+            toast(`Import selesai. (Semua data sudah ada / Duplikat)`); 
+        } 
+    });
+}
+
+function handleHistoricalExcelImport(event) { 
+    if (isSyncing) return toast('Sedang menyinkronkan data, harap tunggu sebentar.', true);
+    const file = event.target.files[0]; 
+    if (!file) return; 
+    const reader = new FileReader(); 
+    reader.onload = function(e) { 
+        const data = new Uint8Array(e.target.result); 
+        const workbook = XLSX.read(data, {type: 'array'}); 
+        const firstSheetName = workbook.SheetNames[0]; 
+        const worksheet = workbook.Sheets[firstSheetName]; 
+        const json = XLSX.utils.sheet_to_json(worksheet, {raw: false}); 
+        processHistoricalExcelData(json); 
+        event.target.value = ''; 
+    }; 
+    reader.readAsArrayBuffer(file); 
+}
+
+function processHistoricalExcelData(data) { 
+    if (!data || data.length === 0) return toast("File kosong atau tidak valid", true); 
+    
+    let targetKey = window.currentReportMonthKey;
+    if (!targetKey) return toast("Buka salah satu bulan terlebih dahulu!", true);
+
+    showLoader("Mengompresi & Menyimpan ke Cloud...");
+
+    let [tYear, tMonth] = targetKey.split('-');
+    let forcedTimestamp = new Date(parseInt(tYear), parseInt(tMonth) - 1, 15, 12, 0, 0).getTime();
+
+    let grouped = {}; 
+    let jawaKeywords = ["jawa", "jakarta", "dki", "banten", "jabar", "jateng", "jatim", "diy", "yogyakarta", "jogja", "bandung", "surabaya", "semarang", "malang", "bogor", "bekasi", "depok", "tangerang", "cirebon", "surakarta", "solo", "kediri", "madiun", "purwokerto", "tegal"]; 
+    
+    const getField = (row, fieldNames) => { 
+        let keys = Object.keys(row); 
+        for(let fn of fieldNames) { 
+            let found = keys.find(k => k.toLowerCase().includes(fn.toLowerCase())); 
+            if(found) return row[found]; 
+        } 
+        return undefined; 
+    }; 
+    
+    for(let i = 0; i < data.length; i++) { 
+        let row = data[i]; 
+        let rawInvNo = getField(row, ["invoice", "no invoice"]); 
+        if (!rawInvNo) continue; 
+        let invNo = String(rawInvNo).replace(/^'/, '').trim(); 
+        let sku = String(getField(row, ["sku"]) || "").trim(); 
+        let qty = parseInt(getField(row, ["qty", "quantity"])) || 0; 
+        let price = parseFloat(String(getField(row, ["price", "satuan harga", "sale price"])).replace(/,/g, '')) || 0; 
+        let grandTotal = parseFloat(String(getField(row, ["grand total", "total sales", "total invoice"])).replace(/,/g, '')) || 0; 
+        let cust = String(getField(row, ["customer", "nama penerima", "account name"]) || "Unknown").trim(); 
+        let addr = String(getField(row, ["address", "alamat"]) || "").toLowerCase(); 
+        
+        if(!sku || qty === 0) continue; 
+        
+        if (!grouped[invNo]) { 
+            let region = "luar_jawa"; 
+            if (jawaKeywords.some(kw => addr.includes(kw))) { region = "jawa"; } 
+            
+            grouped[invNo] = { 
+                id: Date.now() + Math.floor(Math.random()*1000) + i, 
+                invNum: invNo, customer: cust, region: region, 
+                timestamp: forcedTimestamp, 
+                paid: true, paidDate: forcedTimestamp, 
+                items: [], total: grandTotal, totalQty: 0 
+            }; 
+        } 
+        grouped[invNo].items.push({ sku: sku, qty: qty, price: price }); 
+        grouped[invNo].totalQty += qty; 
+        if (grandTotal === 0) { grouped[invNo].total += (qty * price); } 
+    } 
+    
+    let newInvoicesCount = 0; 
+    Object.values(grouped).forEach(inv => { 
+        let exists = savedInvoices.find(s => s.invNum === inv.invNum); 
+        if(!exists) { savedInvoices.push(inv); newInvoicesCount++; } 
+    }); 
+    
+    localStorage.setItem('nvmee_saved_invoices', JSON.stringify(savedInvoices)); 
+    
+    saveToCloud().then(() => {
+        updateDashboard(); 
+        if (document.getElementById('view-invoice').classList.contains('active')) renderInvoiceList(); 
+        if (document.getElementById('view-report').classList.contains('active')) renderReportList(); 
+        
+        showReportDetail(targetKey);
+        
+        hideLoader();
+        if(newInvoicesCount > 0) { 
+            toast(`Berhasil import ${newInvoicesCount} invoice langsung ke bulan ini (Lunas)! ✅`); 
+        } else { 
+            toast(`Import selesai. (Semua data sudah ada / Duplikat)`); 
+        }
+    });
+}
+
+let isFirstLoad = true; loadFromCloud(true);
+</script>
+</body>
+</html>
