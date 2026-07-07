@@ -9,6 +9,7 @@
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
 <style>
   :root {
@@ -356,6 +357,13 @@
            </div>
         </div>
 
+        <div class="card" style="border-color: var(--accent-light); margin-bottom: 15px;">
+          <div class="card-title" style="color: var(--accent);" id="trend-chart-title">📈 Tren Omzet Tahun Ini</div>
+          <div style="position: relative; width: 100%; height: 220px; margin-top: 10px;">
+            <canvas id="trendChart" role="img" aria-label="Grafik tren omzet bulanan sepanjang tahun berjalan">Grafik tren omzet bulanan.</canvas>
+          </div>
+        </div>
+
         <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
           <div class="widget w-blue">
             <div style="font-size:10px; color:var(--text2);">Omzet Keseluruhan (Bulan Ini)</div>
@@ -681,7 +689,8 @@
           <div><h1>Database Mitra</h1><p>Daftar lengkap mitra, klasifikasi, dan rekap akumulasi order</p></div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
             <button class="btn-primary" onclick="openMitraModal()">+ Tambah Mitra</button>
-            <button class="btn-primary" style="background-color: var(--green); border: none;" onclick="document.getElementById('excel-mitra-file').click()">📥 Import Data Mitra (Excel)</button>
+<button class="btn-primary" style="background-color: var(--green); border: none;" onclick="document.getElementById('excel-mitra-file').click()">📥 Import Data Mitra (Excel)</button>
+<button class="btn-outline" id="btn-toggle-years" onclick="toggleMitraYears()">📅 Tampilkan Semua Tahun</button>
             <input type="file" id="excel-mitra-file" accept=".csv, .xlsx, .xls" style="display:none" onchange="handleExcelMitraImport(event)">
           </div>
         </div>
@@ -700,22 +709,11 @@
         </div>
 
         <div class="mitra-table-wrapper">
-          <table class="mitra-table">
-            <thead>
-              <tr>
-                <th style="width: 50px; text-align: center;">No</th>
-                <th onclick="sortMitra('name')">Nama Store <span>↕</span></th>
-                <th onclick="sortMitra('city')">Kota <span>↕</span></th>
-                <th onclick="sortMitra('prov')">Provinsi <span>↕</span></th>
-                <th onclick="sortMitra('year')">2026 <span>↕</span></th>
-                <th style="text-align: right;" onclick="sortMitra('total')">Total Orderan <span>↕</span></th>
-                <th onclick="sortMitra('status')">Status <span>↕</span></th>
-              </tr>
-            </thead>
-            <tbody id="mitra-list-container">
-              </tbody>
-          </table>
-        </div>
+  <table class="mitra-table">
+    <thead id="mitra-table-head"></thead>
+    <tbody id="mitra-list-container"></tbody>
+  </table>
+</div>
       </div>
 
     </div>
@@ -776,7 +774,7 @@
           <option value="vendor">Vendor</option>
         </select>
       </div>
-      <div class="field"><label>Base Order Awal (Rp)</label><input type="number" id="mitra-base-order" value="0" onchange="calcMitraTotal()"></div>
+      
       
       <div class="card-title" style="margin-top:15px; margin-bottom:10px;">Riwayat Order Tahunan Tambahan</div>
       <div id="mitra-yearly-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>
@@ -1029,20 +1027,24 @@ const DEFAULT_CATALOG = [
 let CATALOG = JSON.parse(localStorage.getItem('nvmee_catalog')) || DEFAULT_CATALOG;
 
 const DEFAULT_MITRAS = [
-  { id: 1, name: "Blibli", city: "Jakarta Timur", prov: "DKI JAKARTA", baseOrder: 271722000, status: "prioritas", yearlyOrders: {} },
-  { id: 2, name: "Farina Femme", city: "Surabaya", prov: "JAWA TIMUR", baseOrder: 18390000, status: "reguler", yearlyOrders: {} },
-  { id: 3, name: "Palu Makeup", city: "Palu", prov: "SULAWESI TENGAH", baseOrder: 394578000, status: "prioritas", yearlyOrders: {} },
-  { id: 4, name: "Toko Istana Indah Samarinda", city: "Samarinda", prov: "KALIMANTAN TIMUR", baseOrder: 737706000, status: "prioritas", yearlyOrders: {} }
+  { id: 1, name: "Blibli", city: "Jakarta Timur", prov: "DKI Jakarta", status: "prioritas", yearlyOrders: { "2026": 120000000, "2025": 95000000, "2024": 56722000 } },
+  { id: 2, name: "Farina Femme", city: "Surabaya", prov: "Jawa Timur", status: "reguler", yearlyOrders: { "2026": 8000000, "2025": 6390000, "2024": 4000000 } },
+  { id: 3, name: "Palu Makeup", city: "Palu", prov: "Sulawesi Tengah", status: "prioritas", yearlyOrders: { "2026": 180000000, "2025": 150000000, "2024": 64578000 } },
+  { id: 4, name: "Toko Istana Indah Samarinda", city: "Samarinda", prov: "Kalimantan Timur", status: "prioritas", yearlyOrders: { "2026": 250000000, "2025": 210000000, "2024": 180000000, "2023": 97706000 } }
 ];
 
 let mitras = JSON.parse(localStorage.getItem('nvmee_mitras')) || DEFAULT_MITRAS;
 
 function getMitraGrandTotal(m) {
-    let t = m.baseOrder || 0;
-    if(m.yearlyOrders) {
-        Object.values(m.yearlyOrders).forEach(v => t += v);
-    }
+    let t = 0;
+    if (m.yearlyOrders) Object.values(m.yearlyOrders).forEach(v => t += (parseFloat(v) || 0));
     return t;
+}
+
+function getAllYears() {
+    let set = new Set();
+    mitras.forEach(m => { if (m.yearlyOrders) Object.keys(m.yearlyOrders).forEach(y => set.add(y)); });
+    return Array.from(set).sort((a, b) => b - a);
 }
 
 let mitraSortCol = 'total';
@@ -1063,39 +1065,57 @@ function sortMitra(col) {
         mitraSortCol = col;
         mitraSortDir = (col === 'name' || col === 'city' || col === 'prov' || col === 'status') ? 'asc' : 'desc';
     }
-    
-    document.querySelectorAll('.mitra-table th span').forEach(el => el.innerHTML = '↕');
-    let thElements = document.querySelectorAll('.mitra-table th');
-    let indexMap = {'name': 1, 'city': 2, 'prov': 3, 'year': 4, 'total': 5, 'status': 6};
-    if(indexMap[col]) {
-        let activeSpan = thElements[indexMap[col]].querySelector('span');
-        if(activeSpan) activeSpan.innerHTML = mitraSortDir === 'asc' ? '↑' : '↓';
-    }
     renderMitraList();
+}
+
+let mitraYearsExpanded = false;
+
+function toggleMitraYears() {
+    mitraYearsExpanded = !mitraYearsExpanded;
+    document.getElementById('btn-toggle-years').textContent = mitraYearsExpanded ? '📅 Sembunyikan Tahun Lama' : '📅 Tampilkan Semua Tahun';
+    renderMitraList();
+}
+
+function renderMitraTableHead() {
+    let allYears = getAllYears();
+    let years = mitraYearsExpanded ? allYears : allYears.slice(0, 1);
+    let head = document.getElementById('mitra-table-head');
+    const arrow = (col) => mitraSortCol === col ? (mitraSortDir === 'asc' ? '↑' : '↓') : '↕';
+    let yearThs = years.map(y => `<th style="text-align:right;" onclick="sortMitra('y_${y}')">${y} <span>${arrow('y_' + y)}</span></th>`).join('');
+    head.innerHTML = `
+      <tr>
+        <th style="width: 50px; text-align: center;">No</th>
+        <th onclick="sortMitra('name')">Mitra <span>${arrow('name')}</span></th>
+        <th onclick="sortMitra('status')">Status <span>${arrow('status')}</span></th>
+        <th onclick="sortMitra('city')">Kota <span>${arrow('city')}</span></th>
+        <th onclick="sortMitra('prov')">Provinsi <span>${arrow('prov')}</span></th>
+        <th style="text-align:right;" onclick="sortMitra('total')">Total Order <span>${arrow('total')}</span></th>
+        ${yearThs}
+      </tr>`;
 }
 
 function renderMitraList() {
     let container = document.getElementById('mitra-list-container');
     let q = (document.getElementById('mitra-search')?.value || '').toLowerCase();
+    let allYears = getAllYears();
+    let years = mitraYearsExpanded ? allYears : allYears.slice(0, 1);
+    renderMitraTableHead();
     container.innerHTML = '';
 
-    let filtered = mitras.filter(m => 
-        m.name.toLowerCase().includes(q) || 
-        m.city.toLowerCase().includes(q) || 
-        m.prov.toLowerCase().includes(q)
+    let filtered = mitras.filter(m =>
+        m.name.toLowerCase().includes(q) ||
+        (m.city || '').toLowerCase().includes(q) ||
+        (m.prov || '').toLowerCase().includes(q)
     );
 
     filtered.sort((a, b) => {
         let valA, valB;
         if (mitraSortCol === 'name') { valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); }
-        else if (mitraSortCol === 'city') { valA = a.city.toLowerCase(); valB = b.city.toLowerCase(); }
-        else if (mitraSortCol === 'prov') { valA = a.prov.toLowerCase(); valB = b.prov.toLowerCase(); }
-        else if (mitraSortCol === 'year') { 
-            valA = (a.yearlyOrders && a.yearlyOrders['2026']) ? a.yearlyOrders['2026'] : 0;
-            valB = (b.yearlyOrders && b.yearlyOrders['2026']) ? b.yearlyOrders['2026'] : 0;
-        }
+        else if (mitraSortCol === 'city') { valA = (a.city || '').toLowerCase(); valB = (b.city || '').toLowerCase(); }
+        else if (mitraSortCol === 'prov') { valA = (a.prov || '').toLowerCase(); valB = (b.prov || '').toLowerCase(); }
         else if (mitraSortCol === 'total') { valA = getMitraGrandTotal(a); valB = getMitraGrandTotal(b); }
         else if (mitraSortCol === 'status') { valA = statusWeights[a.status] || 99; valB = statusWeights[b.status] || 99; }
+        else if (mitraSortCol.startsWith('y_')) { let yr = mitraSortCol.slice(2); valA = (a.yearlyOrders && a.yearlyOrders[yr]) || 0; valB = (b.yearlyOrders && b.yearlyOrders[yr]) || 0; }
 
         if (valA < valB) return mitraSortDir === 'asc' ? -1 : 1;
         if (valA > valB) return mitraSortDir === 'asc' ? 1 : -1;
@@ -1103,7 +1123,7 @@ function renderMitraList() {
     });
 
     let counts = { total: mitras.length, prioritas: 0, potensi: 0, reguler: 0, sleep: 0, vendor: 0 };
-    mitras.forEach(m => { if(counts[m.status] !== undefined) counts[m.status]++; });
+    mitras.forEach(m => { if (counts[m.status] !== undefined) counts[m.status]++; });
 
     document.getElementById('sm-total').textContent = counts.total;
     document.getElementById('sm-prioritas').textContent = counts.prioritas;
@@ -1112,26 +1132,30 @@ function renderMitraList() {
     document.getElementById('sm-sleep').textContent = counts.sleep;
     document.getElementById('sm-vendor').textContent = counts.vendor;
 
-    if(filtered.length === 0) {
-        container.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text3); padding: 20px;">Mitra tidak ditemukan.</td></tr>';
+    if (filtered.length === 0) {
+        container.innerHTML = `<tr><td colspan="${6 + years.length}" style="text-align:center; color:var(--text3); padding: 20px;">Mitra tidak ditemukan.</td></tr>`;
         return;
     }
 
     filtered.forEach((m, index) => {
         let grandTotal = getMitraGrandTotal(m);
-        let year2026 = (m.yearlyOrders && m.yearlyOrders['2026']) ? m.yearlyOrders['2026'] : 0;
         let badgeClass = 'bg-' + m.status;
         let rowClass = 'row-' + m.status;
-        
+
+        let yearCells = years.map(y => {
+            let v = (m.yearlyOrders && m.yearlyOrders[y]) || 0;
+            return `<td style="text-align:right; font-family:'DM Mono',monospace; font-weight:600;">Rp ${v.toLocaleString('id-ID')}</td>`;
+        }).join('');
+
         container.innerHTML += `
             <tr class="${rowClass}" onclick="openMitraModal(${m.id})">
                 <td style="text-align: center;">${index + 1}</td>
                 <td style="font-weight: 700; color: var(--text);">${m.name}</td>
+                <td><span class="mitra-badge ${badgeClass}">${m.status}</span></td>
                 <td>${m.city}</td>
                 <td>${m.prov}</td>
-                <td style="font-family: 'DM Mono', monospace; font-weight: 600;">Rp ${year2026.toLocaleString('id-ID')}</td>
                 <td style="text-align: right; font-family: 'DM Mono', monospace; font-weight: 700; color: var(--accent);">Rp ${grandTotal.toLocaleString('id-ID')}</td>
-                <td><span class="mitra-badge ${badgeClass}">${m.status}</span></td>
+                ${yearCells}
             </tr>
         `;
     });
@@ -1141,7 +1165,7 @@ function handleExcelMitraImport(event) {
     if (isSyncing) return toast('Sistem sedang sibuk. Coba sebentar lagi.', true);
     const file = event.target.files[0];
     if (!file) return;
-    
+
     showLoader("Mengimport Data Mitra...");
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -1154,37 +1178,37 @@ function handleExcelMitraImport(event) {
             let addedCount = 0; let skippedCount = 0;
 
             json.forEach(row => {
-                let rawName = row['Nama Store'] || row['Nama'] || row['Mitra'] || row['Nama Mitra'] || row['Customer'];
+                let rawName = row['Nama Mitra'] || row['Nama Store'] || row['Nama'] || row['Mitra'] || row['Customer'];
                 if (!rawName) return;
                 let name = String(rawName).trim();
 
                 let exists = mitras.find(m => m.name.toLowerCase() === name.toLowerCase());
-                if(exists) { skippedCount++; return; }
+                if (exists) { skippedCount++; return; }
 
                 let city = row['Kota'] || row['City'] || '-';
                 let prov = row['Provinsi'] || row['Province'] || '-';
-                
+
                 let rawStatus = String(row['Status'] || row['Klasifikasi'] || 'reguler').toLowerCase().trim();
                 let status = 'reguler';
-                if(rawStatus.includes('prioritas')) status = 'prioritas';
-                else if(rawStatus.includes('potensi')) status = 'potensi';
-                else if(rawStatus.includes('sleep')) status = 'sleep';
-                else if(rawStatus.includes('vendor')) status = 'vendor';
+                if (rawStatus.includes('prioritas')) status = 'prioritas';
+                else if (rawStatus.includes('potensi')) status = 'potensi';
+                else if (rawStatus.includes('sleep')) status = 'sleep';
+                else if (rawStatus.includes('vendor')) status = 'vendor';
 
-                let baseOrder = parseFloat(row['Total Orderan'] || row['Total Order'] || row['Base Order'] || 0) || 0;
-                
                 let yearly = {};
-                if(row['2024']) yearly['2024'] = parseFloat(row['2024']) || 0;
-                if(row['2025']) yearly['2025'] = parseFloat(row['2025']) || 0;
-                if(row['2026']) yearly['2026'] = parseFloat(row['2026']) || 0;
+                Object.keys(row).forEach(key => {
+                    if (/^\d{4}$/.test(key.trim())) {
+                        let val = parseFloat(row[key]) || 0;
+                        if (val) yearly[key.trim()] = val;
+                    }
+                });
 
                 mitras.push({
-                    id: Date.now() + Math.floor(Math.random()*10000) + addedCount,
+                    id: Date.now() + Math.floor(Math.random() * 10000) + addedCount,
                     name: name,
-                    city: city,
-                    prov: prov,
+                    city: String(city).trim(),
+                    prov: String(prov).trim(),
                     status: status,
-                    baseOrder: baseOrder,
                     yearlyOrders: yearly
                 });
                 addedCount++;
@@ -1194,7 +1218,7 @@ function handleExcelMitraImport(event) {
             saveToCloud().then(() => {
                 hideLoader();
                 renderMitraList();
-                if(addedCount > 0) toast(`Berhasil import ${addedCount} Mitra! (${skippedCount} data ganda dilewati) ✅`);
+                if (addedCount > 0) toast(`Berhasil import ${addedCount} Mitra! (${skippedCount} data ganda dilewati) ✅`);
                 else toast(`Tidak ada data baru ditambahkan. (${skippedCount} data sudah ada)`);
             });
         } catch (error) {
@@ -1211,7 +1235,7 @@ function openMitraModal(id = null) {
     let title = document.getElementById('mitra-modal-title');
     let btnDel = document.getElementById('btn-delete-mitra');
 
-    if(id) {
+    if (id) {
         let m = mitras.find(x => x.id === id);
         title.textContent = "Edit Data Mitra";
         document.getElementById('mitra-id').value = m.id;
@@ -1219,7 +1243,6 @@ function openMitraModal(id = null) {
         document.getElementById('mitra-city').value = m.city;
         document.getElementById('mitra-prov').value = m.prov;
         document.getElementById('mitra-status').value = m.status;
-        document.getElementById('mitra-base-order').value = m.baseOrder;
         tempYearlyOrders = JSON.parse(JSON.stringify(m.yearlyOrders || {}));
         btnDel.style.display = 'block';
     } else {
@@ -1229,7 +1252,6 @@ function openMitraModal(id = null) {
         document.getElementById('mitra-city').value = '';
         document.getElementById('mitra-prov').value = '';
         document.getElementById('mitra-status').value = 'reguler';
-        document.getElementById('mitra-base-order').value = '0';
         tempYearlyOrders = {};
         btnDel.style.display = 'none';
     }
@@ -1248,12 +1270,12 @@ function renderMitraYearlyInputs() {
 function addMitraYearly() { let nextYear = new Date().getFullYear().toString(); if(tempYearlyOrders[nextYear] !== undefined) nextYear = (parseInt(nextYear)+1).toString(); tempYearlyOrders[nextYear] = 0; renderMitraYearlyInputs(); }
 function updateTempYearly(el) { let newTemp = {}; document.querySelectorAll('#mitra-yearly-container > div').forEach(r => { let yr = r.querySelector('.y-year').value; let vl = parseFloat(r.querySelector('.y-val').value) || 0; if(yr) newTemp[yr] = vl; }); tempYearlyOrders = newTemp; calcMitraTotal(); }
 function deleteTempYear(y) { delete tempYearlyOrders[y]; renderMitraYearlyInputs(); }
-function calcMitraTotal() { let base = parseFloat(document.getElementById('mitra-base-order').value) || 0; let total = base; Object.values(tempYearlyOrders).forEach(v => total += v); document.getElementById('mitra-grand-total').textContent = 'Rp ' + total.toLocaleString('id-ID'); }
+function calcMitraTotal() { let total = 0; Object.values(tempYearlyOrders).forEach(v => total += v); document.getElementById('mitra-grand-total').textContent = 'Rp ' + total.toLocaleString('id-ID'); }
 
 function saveMitra() {
     let id = document.getElementById('mitra-id').value; let name = document.getElementById('mitra-name').value.trim();
     if(!name) return toast('Nama Mitra wajib diisi!', true);
-    let newData = { id: id ? parseInt(id) : Date.now(), name: name, city: document.getElementById('mitra-city').value.trim(), prov: document.getElementById('mitra-prov').value.trim(), status: document.getElementById('mitra-status').value, baseOrder: parseFloat(document.getElementById('mitra-base-order').value) || 0, yearlyOrders: tempYearlyOrders };
+    let newData = { id: id ? parseInt(id) : Date.now(), name: name, city: document.getElementById('mitra-city').value.trim(), prov: document.getElementById('mitra-prov').value.trim(), status: document.getElementById('mitra-status').value, yearlyOrders: tempYearlyOrders };
     if(id) { let idx = mitras.findIndex(x => x.id == id); if(idx !== -1) mitras[idx] = newData; } else mitras.push(newData);
     localStorage.setItem('nvmee_mitras', JSON.stringify(mitras)); saveToCloud(); toast('Data mitra disimpan!'); closeMitraModal(); renderMitraList();
 }
@@ -1406,6 +1428,49 @@ function calculateGrandTotal(monthKey) {
     
     let grandTotalFinal = finalNVMEE + finalOther - (extra.retur || 0);
     return { finalNVMEE, finalOther, retur: extra.retur, grandTotalFinal, totalRawNVMEE: totalNVMEE };
+}
+
+let trendChartInstance = null;
+function renderOmzetTrendChart() {
+    let currentYear = new Date().getFullYear();
+    document.getElementById('trend-chart-title').textContent = `📈 Tren Omzet ${currentYear}`;
+
+    let dataPoints = [];
+    for (let i = 1; i <= 12; i++) {
+        let mKey = `${currentYear}-${String(i).padStart(2, '0')}`;
+        let calc = calculateGrandTotal(mKey);
+        dataPoints.push(Math.round(calc.grandTotalFinal / 1000000));
+    }
+
+    let ctx = document.getElementById('trendChart');
+    if (trendChartInstance) trendChartInstance.destroy();
+    trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthNamesAll.map(m => m.slice(0, 3)),
+            datasets: [{
+                label: 'Grand Total Final',
+                data: dataPoints,
+                borderColor: '#C0306A',
+                backgroundColor: 'rgba(192,48,106,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: '#C0306A',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { ticks: { callback: (v) => 'Rp ' + v + 'jt', font: { size: 10 } }, beginAtZero: true },
+                x: { ticks: { font: { size: 10 } } }
+            }
+        }
+    });
 }
 
 // ==========================================
@@ -1569,6 +1634,8 @@ document.getElementById('dash-target-year-content').innerHTML = `
   if (overdueContainer) {
       overdueContainer.innerHTML = overdueHTML || '<li style="justify-content:center; color:var(--green); font-weight:bold; padding:10px;">🎉 Mantap! Tidak ada invoice yang menunggak lebih dari 3 hari.</li>';
   }
+
+  renderOmzetTrendChart();
 }
 
 function renderReportList() {
